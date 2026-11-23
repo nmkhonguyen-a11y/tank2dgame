@@ -568,9 +568,10 @@ const ST={bd:'Sát thương đạn',bh:'Độ cứng đạn',bs:'Tốc độ đ�
 const SF={hp:60,mv:.4,body:22,bd:15,bs:2.2,rl:.84,rg:.1,bh:.6,rng:.08};
 const fresh=()=>({bkm:{rc:1,pel:1,rng:1,spr:1,dm:1},level:1,exp:0,st:{bd:0,bh:0,bs:0,rl:0,maxHp:0,rg:0,mv:0,body:0,rng:0},cap:{bd:20,bh:20,bs:20,rl:20,maxHp:20,rg:20,mv:20,body:20,rng:20},type:'basic',gems:0,owned:['basic'],stats:{kills:0,shapes:0,levels:0,gems:0,secs:0,bigKills:0},chests:{c:0,s:0,g:0,a:0},spins:0,qs:{},chain:{step:0,prog:0}});
 let D=fresh();try{const r=JSON.parse(localStorage.getItem(KEY)||'null');if(r)D=Object.assign(fresh(),r)}catch(e){}
-if(!S[D.type]||D.type==='pentarailgun')D.type='basic';
+if(!S[D.type]||D.type==='pentarailgun'){if(/^shop_/.test(D.type))D._pt=D.type;D.type='basic'}
 D.stats=Object.assign({kills:0,shapes:0,levels:0,gems:0,secs:0,bigKills:0},D.stats);D.chests=Object.assign({c:0,s:0,g:0,a:0},D.chests);D.spins=D.spins||0;D.qs=D.qs||{};D.chain=Object.assign({step:0,prog:0},D.chain);
-{const RM={summoner:300,commander:800,warlord:2000,overmind:2000};(D.owned||[]).forEach(k=>{if(!S[k]&&RM[k])D.gems+=RM[k]});D.owned=(D.owned||['basic']).filter(k=>S[k]);if(!D.owned.includes('basic'))D.owned.push('basic')}
+{const RM={summoner:300,commander:800,warlord:2000,overmind:2000};(D.owned||[]).forEach(k=>{if(!S[k]&&RM[k])D.gems+=RM[k]});D.owned=(D.owned||['basic']).filter(k=>S[k]||/^shop_/.test(k));if(!D.owned.includes('basic'))D.owned.push('basic')}
+if(!Array.isArray(D.dguns))D.dguns=[];
 D.bkm=Object.assign(fresh().bkm,D.bkm);D.st=Object.assign(fresh().st,D.st);D.cap=Object.assign(fresh().cap,D.cap);for(const k in D.cap)D.cap[k]=Math.max(20,D.cap[k]|0);
 function save(){if(player&&(player.admin||player.dead||player.pvp))return;if(player){D.level=player.level;D.exp=player.exp;D.st=player.st;D.type=player.typeKey}try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
 function wipe(){if(confirm('Xoá toàn bộ tiến trình?')){D=fresh();try{localStorage.removeItem(KEY)}catch(e){}menuInfo()}}
@@ -981,12 +982,12 @@ function wReward(s){let msg='';
  save();$('wres').innerHTML=msg;$('wtk').textContent=D.spins;$('wspin').disabled=!(D.spins>0);$('shopG').textContent='💎 '+D.gems}
 function togQ(){const o=$('qpanel');o.classList.toggle('hidden');if(!o.classList.contains('hidden'))renderQ();else menuInfo()}
 function renderShop(){$('shopG').textContent='💎 '+D.gems;let h='';const nz=t=>String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d'),TT={c:'C',b:'B',a:'A',s:'S',ss:'SS',sss:'SSS',ssss:'SSSS',sssss:'SSSSS',mythic:'MYTHIC',ultra:'ULTRA',hyper:'HYPER'},qs=nz($('shopQ')?$('shopQ').value:'').split(/\s+/).filter(Boolean);let shown=0,total=0;
- for(const k in S){const s=S[k];if(k==='basic'||s.tier==='ADMIN'||(s.rot&&!D.owned.includes(k)))continue;total++;const hay=nz(s.name+' '+k+' '+s.tier+' tier '+s.desc);if(!qs.every(w=>w==='tier'||(TT[w]?s.tier===TT[w]:hay.includes(w))))continue;shown++;const own=D.owned.includes(k),eq=D.type===k;
+ for(const k in S){const s=S[k];if(k==='basic'||s.tier==='ADMIN'||(s.rot&&!D.owned.includes(k))||(s.hidden&&!D.owned.includes(k)))continue;total++;const hay=nz(s.name+' '+k+' '+s.tier+' tier '+s.desc);if(!qs.every(w=>w==='tier'||(TT[w]?s.tier===TT[w]:hay.includes(w))))continue;shown++;const own=D.owned.includes(k),eq=D.type===k;
   h+=`<div class="card" style="border-color:${s.color}"><canvas width="90" height="70" data-k="${k}"></canvas><b style="color:${s.color}">${s.name} <span class="mu">Tier ${s.tier}</span></b><span>${s.desc}</span><span class="mu">HP ${s.hp} · Tốc độ ${s.speed} · Dmg ${s.dmg}</span>`+
-  (own?`<button onclick="equip('${k}')" ${eq?'disabled':''}>${eq?'ĐANG DÙNG':'TRANG BỊ'}</button>`:`<button class="gold" onclick="buy('${k}')">💎 ${PRICE[s.tier]}</button>`)+`</div>`}
+  (own?`<button onclick="equip('${k}')" ${eq?'disabled':''}>${eq?'ĐANG DÙNG':'TRANG BỊ'}</button>`:`<button class="gold" onclick="buy('${k}')">💎 ${s.price!=null?s.price:PRICE[s.tier]}</button>`)+`</div>`}
  if(!shown)h='<div class="mu" style="grid-column:1/-1">Không tìm thấy xe nào phù hợp.</div>';$('shopN').textContent='Hiển thị '+shown+'/'+total+' xe';$('shopC').innerHTML=h;pv($('shopC'));
  $('shopT').innerHTML=Object.keys(ST).map(k=>{const c=D.cap[k],p=c*15;return`<div class="card"><b>${ST[k]}</b><span class="mu">Giới hạn: ${c}/20</span><button class="gold" ${c>=20||D.gems<p?'disabled':''} onclick="buyCap('${k}')">${c>=20?'TỐI ĐA':'💎 '+p}</button></div>`}).join('')}
-function buy(k){if(S[k].rot)return;const p=PRICE[S[k].tier];if(D.gems>=p&&!D.owned.includes(k)){D.gems-=p;D.owned.push(k);equip(k)}}
+function buy(k){if(S[k].rot)return;const p=(S[k].price!=null?S[k].price:PRICE[S[k].tier]);if(D.gems>=p&&!D.owned.includes(k)){D.gems-=p;D.owned.push(k);equip(k)}}
 function equip(k){D.type=k;if(player){player.setT(k);text(player.x,player.y-40,'ĐỔI SÚNG: kĩ năng súng cũ đã mất','#f472b6')}save();renderShop()}
 function buyCap(k){const p=D.cap[k]*15;if(D.gems>=p&&D.cap[k]<20){D.gems-=p;D.cap[k]++;save();renderShop()}}
 // ---- HUD ----
@@ -1063,6 +1064,17 @@ const NEWK={x:1,v:1,e:1};
 Object.assign(DGUN,{x:'Break (tách 6 hướng)',v:'Phân hạch 1→2→4→8',e:'Volt (điện giật, tê liệt)',a:'Tam giác Doom (nổ sau 5s · 1 nòng/xe)'});
 Object.assign(LEN,{x:52,v:52,e:58,a:54});
 Object.assign(BC,{x:'#f472b6',v:'#a78bfa',e:'#67e8f9',a:'#fb923c'});
+/* ===== DRONE: chỉ có Nòng thường; các súng khác phải MUA bằng gems (lưu trong D.dguns) ===== */
+const DGP={m:300,g:500,h:600,t:700,k:800,f:1200,z:1200,r:1500,b:1500,x:2000,v:2500,e:3000,a:3500,gatl:5000,mini:6000,rota:7000,chai:8000};
+function dOwn(k){return k==='n'||window.TWE_ADMINALL===true||(D.dguns||[]).includes(k)}
+function dBuyGun(k){const p=DGP[k];if(p==null||dOwn(k))return;if(D.gems<p){alert('Không đủ gems (cần '+p+' 💎)');return}D.gems-=p;if(!Array.isArray(D.dguns))D.dguns=[];D.dguns.push(k);dSave();dRender()}
+function dShopHtml(){
+  const ks=Object.keys(DGP).filter(k=>DGUN[k]&&!dOwn(k));
+  let h='<div class="pn" style="margin-top:8px;text-align:left;border-color:#fbbf24"><b style="color:#fbbf24">🛒 MUA SÚNG CHO DRONE</b> <span class="mu" style="font-size:12px">· bạn có 💎 '+D.gems+'</span>';
+  if(!ks.length)h+='<div class="mu" style="margin-top:6px">Bạn đã sở hữu mọi loại súng drone.</div>';
+  ks.forEach(k=>{h+='<div class="row" style="margin-top:4px"><span>'+DGUN[k]+'</span><button class="gold" onclick="dBuyGun(\''+k+'\')">💎 '+DGP[k]+'</button></div>'});
+  return h+'</div>';
+}
 let DOOMSHOT=0;
 let inDroneShot=false;
 let CT=null;
@@ -1116,6 +1128,7 @@ function dNormG(i){
 }
 function mkDroneGun(code,col,push,side){
   if(!code)return null;
+  if(!dOwn(code))code='n'; // chưa mua thì chỉ dùng nòng thường
   const src=DROT[code]?S[DROT[code]]:null;
   const bars=src?cpBars(src.bar):pb(code+':0:0:1',null);
   if(bars.rots)bars.rots.forEach(r=>r.rk=code);
@@ -1176,7 +1189,8 @@ function dSetGun(i,j,v){dNormG(i).g[j]=v;dSave()}
 function dSetPos(i,j,k,v){dNormG(i).pos[j][k]=+v||0;dSave()}
 function dRender(){
   const c=D.drones;
-  const opt=sel=>Object.keys(DGUN).map(k=>'<option value="'+k+'"'+(k===sel?' selected':'')+'>'+DGUN[k]+'</option>').join('');
+  for(let i=0;i<2;i++){const e=dNormG(i);e.g=e.g.map((c,j)=>c&&!dOwn(c)?(j===1?'':'n'):c)}
+  const opt=sel=>Object.keys(DGUN).filter(k=>dOwn(k)).map(k=>'<option value="'+k+'"'+(k===sel?' selected':'')+'>'+DGUN[k]+'</option>').join('');
   let h='<h1 style="font-size:24px">🤖 DRONE HỘ TỐNG</h1><div class="pn" style="width:min(620px,96%);text-align:left">'+
     '<div class="row"><b>Số drone</b><select onchange="dSetN(this.value)">'+[0,1,2].map(v=>'<option value="'+v+'"'+(v===(c.n|0)?' selected':'')+'>'+v+'</option>').join('')+'</select></div>'+
     '<div class="mu" style="font-size:12px;line-height:1.5">Drone bay sát hai bên xe, luôn thẳng hàng với xe và ngắm cùng hướng với bạn. Mỗi drone gắn tối đa 2 súng (mọi loại, kể cả súng xoay Gatler/Minigun/Rotary/Chain Gun) và mỗi súng đặt được ở <b>bất kì đâu trên drone</b>: <b>xa/gần</b> đẩy súng ra trước (số âm: về sau), <b>lệch</b> đẩy sang hai bên. Lực giật của súng trên drone đẩy chính xe tăng của bạn.</div>';
@@ -1191,7 +1205,7 @@ function dRender(){
     }
     h+='</div>';
   }
-  h+='</div><button class="red" onclick="dClose()">ĐÓNG (V)</button>';
+  h+='</div>'+dShopHtml()+'<button class="red" onclick="dClose()">ĐÓNG (V)</button>';
   $('dpanel').innerHTML=h;
 }
 function uiPause(on){
@@ -2100,6 +2114,6 @@ addEventListener('keydown',e=>{
   if(tg)setAtk(tg);
 },true);
 </script>
-<script src="hub.js"></script><script src="account.js"></script><script src="online.js"></script>
+<script src="hub.js"></script><script src="account.js"></script><script src="admin.js"></script><script src="online.js"></script>
 <script src="/net.js"></script>
 </body></html>

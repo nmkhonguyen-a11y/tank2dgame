@@ -35,6 +35,7 @@
   let scoreT = {}, endAt = 0, aliveN = 0, lastAtk = null, stats = {}, names = {}, startTimer = null, endInfo = null, elimPlace = 0, lastSt = 0;
   const ghosts = new Map(), npcs = new Map(), shapeG = new Map(), reg = new Map(), shapeReg = new Map(), hitE = new Map(), hitS = new Map(), outL = [];
   let nidC = 0, sidC = 0, allowNew = false, allowRemote = false, elimPending = false;
+  let gchat = [], gAuth = false; // phòng chat chung + trạng thái đã gắn tài khoản vào kết nối
 
   const prefs = () => {
     const o = Object.assign({ name: 'Xe' + Math.floor(Math.random() * 900 + 100), url: '', tk: '', mode: '' }, ls());
@@ -63,10 +64,11 @@
   /* Gắn các hàm xử lý vào một "ổ cắm" (WebSocket thật hoặc ổ cắm P2P giả lập cùng giao diện) */
   function attach(w, label) {
     ws = w; let opened = false;
-    w.onopen = () => { opened = true; status = ''; send({ t: 'hello', name: prefs().name }); w._res && w._res() };
+    w.onopen = () => { opened = true; status = ''; send({ t: 'hello', name: prefs().name }); const A = window.TWE_ACCOUNT; if (A && A.token && curMode() === 'ws') send({ t: 'auth', token: A.token }); w._res && w._res() };
     w.onerror = () => { if (!opened) { status = '❌ Không kết nối được ' + label; render(); w._rej && w._rej(new Error('conn')) } };
     w.onclose = () => {
       if (ws !== w) return; ws = null; myId = null; const was = room; room = null; p2pClose();
+      gAuth = false;
       if (ON) { stopMatch(); status = '⚠️ Mất kết nối' + (curMode() === 'p2p' ? ' (chủ phòng đã thoát?)' : ' máy chủ'); view = 'home'; show() }
       else if (was) { status = '⚠️ Mất kết nối' + (curMode() === 'p2p' ? ' (chủ phòng đã thoát?)' : ' máy chủ'); view = 'home'; render() }
     };
@@ -185,6 +187,14 @@
       case 'w': onWorld(m.d || {}); break;
       case 'h': onHitMsg(m); break;
       case 'to': onTo(m.d || {}); break;
+      case 'authed': gAuth = true; break;
+      case 'authfail': gAuth = false; break;
+      case 'ghist': gchat = (m.list || []).slice(-40); renderG(); break;
+      case 'gchat': gchat.push(m); if (gchat.length > 60) gchat.shift(); renderG(); break;
+      case 'gerr': banner('⚠️ ' + m.m); break;
+      case 'announce': banner('📢 ' + (m.by ? m.by + ': ' : '') + m.m); break;
+      case 'forced': status = '⚠️ ' + m.m; banner('⚠️ ' + m.m); break;
+      case 'adm': onAdm(m); break;
     }
   }
 
@@ -280,7 +290,7 @@
     e.net = true; e.barrels = sp.bar; e.ram = sp.ram; e.mode = sp.mode; e.shape = sp.shape; e.bc = sp.bc; e.ring = sp.color; e.nm = sp.name;
     e.maxHp = e.hp = sp.hp; e.r = 26; e.aggro = 0; e.af = false; e.regen = 0; e.dead = false; e.bd = 10; e.rmul = 1; e.bhm = 1; e.frz = 0; e.dmg = 10; e.bodyD = 10; e.ang = e.ta = 0;
     e.gainExp = e.gainLevels = function () { };
-    e.draw = function () { const b = this.barrels; if (b && b.rots) this.barrels = liveBars(this); try { Enemy.prototype.draw.call(this) } finally { this.barrels = b } };
+    e.draw = function () { if (this.iv && !(window.TWE_ACCOUNT && TWE_ACCOUNT.isAdmin)) return; const b = this.barrels; if (b && b.rots) this.barrels = liveBars(this); try { Enemy.prototype.draw.call(this) } finally { this.barrels = b } };
     e.update = function () {
       this.x += (this.tx - this.x) * .4; this.y += (this.ty - this.y) * .4;
       let d = this.ta - this.ang; d = ((d + Math.PI * 3) % (Math.PI * 2)) - Math.PI; this.ang += d * .5;
@@ -323,7 +333,7 @@
     if (!ON || !ready) return;
     const g = ghostOf(m.id); if (!g) return;
     if (Math.hypot(m.x - g.tx, m.y - g.ty) > 350) { g.x = m.x; g.y = m.y }
-    g.tx = m.x; g.ty = m.y; g.ta = m.a; g.hp = m.hp; g.maxHp = m.mh || g.maxHp; g.bd = m.bd || g.bd; if (m.dm) g.dmg = m.dm;
+    g.iv = !!m.iv; g.tx = m.x; g.ty = m.y; g.ta = m.a; g.hp = m.hp; g.maxHp = m.mh || g.maxHp; g.bd = m.bd || g.bd; if (m.dm) g.dmg = m.dm;
     if (m.tk && m.tk !== g.tk && S[m.tk]) { const sp = S[m.tk]; g.tk = m.tk; g.barrels = sp.bar; g.shape = sp.shape; g.ram = sp.ram; g.bc = sp.bc; g.ring = sp.color; g.mode = sp.mode }
   }
 
@@ -400,6 +410,32 @@
     if (m.v) { const g = ghosts.get(m.v); if (g) { boom(g.x, g.y); if (MODE === 'br') dropGhost(m.v); else g.hp = g.maxHp } }
     if (m.by === myId && ON) text(player.x, player.y - 50, '+1 HẠ GỤC', '#fbbf24');
     if (m.v === myId && MODE === 'br') { elimPlace = m.place || 0; if (view === 'elim') render() }
+  }
+
+  /* ============ Thông báo & lệnh của quản trị viên ============ */
+  function banner(t) {
+    let b = document.getElementById('olBanner');
+    if (!b) { b = document.createElement('div'); b.id = 'olBanner'; b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:60;max-width:min(680px,92vw);background:#7c2d12;border:2px solid #f59e0b;color:#fff;padding:10px 18px;border-radius:12px;font-weight:700;text-align:center;box-shadow:0 8px 30px #000a'; document.body.appendChild(b) }
+    b.textContent = t; b.style.display = ''; clearTimeout(banner.t); banner.t = setTimeout(() => { b.style.display = 'none' }, 9000);
+  }
+  function onAdm(m) {
+    if (window.TWE_ACCOUNT && TWE_ACCOUNT.isAdmin) return;
+    if (m.cmd === 'freeze' && ON && ready && player) { window.__admFreeze = { until: performance.now() + (m.ms || 5000), x: player.x, y: player.y }; banner('🧊 Bạn bị quản trị viên đóng băng') }
+    else if (m.cmd === 'tp' && ON && ready && player) { player.x = m.x; player.y = m.y; banner('🧲 Quản trị viên đã kéo bạn tới chỗ họ') }
+    else if (m.cmd === 'msg') banner('📢 ' + m.m);
+  }
+  function renderG() {
+    const b = document.getElementById('olG'); if (!b) return;
+    b.innerHTML = gchat.length ? gchat.map(c => '<div style="margin:2px 0;word-break:break-word">' + (c.admin ? '<b style="color:#f59e0b">[ADMIN] </b>' : '') + '<b style="color:#7dd3fc">' + esc(c.name) + '</b>' + (c.aid ? ' <a href="#" class="mu" style="font-size:10px" onclick="TWE_ONLINE.fillId(\'' + c.aid + '\');return false">#' + c.aid + '</a>' : '') + ': ' + esc(c.m) + '</div>').join('') : '<span class="mu">Chưa có tin nhắn. Hãy chào mọi người!</span>';
+    b.scrollTop = 1e9;
+  }
+  function chatHtml() {
+    const u = window.TWE_ACCOUNT && TWE_ACCOUNT.user;
+    if (curMode() !== 'ws') return '<div class="pn olR"><div class="olH">💬 PHÒNG CHAT CHUNG</div><div class="mu" style="font-size:12px">Chat chung và vào phòng bằng ID chỉ có khi dùng <b>Máy chủ riêng</b>. Đổi “Kiểu kết nối” sang Máy chủ riêng ở bên trái.</div></div>';
+    return '<div class="pn olR"><div class="olH">💬 PHÒNG CHAT CHUNG <span class="mu" style="font-size:11px">· mọi người đang online</span></div><div id="olG" style="height:240px;overflow:auto;background:#0b1220;border-radius:8px;padding:6px;font-size:12px;text-align:left"></div>' +
+      '<div style="display:flex;gap:4px;margin-top:4px"><input id="olGi" maxlength="160" placeholder="Nhắn cho mọi người (Enter)" style="flex:1" onkeydown="event.stopPropagation();if(event.key===\'Enter\')TWE_ONLINE.gsend()"><button onclick="TWE_ONLINE.gsend()">GỬI</button></div>' +
+      '<div class="olH" style="margin-top:12px">👥 CHƠI CÙNG BẠN BẰNG ID</div>' + (u ? '<div class="mu" style="font-size:12px">ID của bạn: <b style="color:#fcd34d;font-size:16px">' + u.id + '</b> — đưa cho bạn bè để họ vào phòng của bạn.</div>' : '<div class="mu" style="font-size:12px;color:#fcd34d">Đăng nhập tài khoản (menu → 👤 TÀI KHOẢN) để có ID cho bạn bè tìm.</div>') +
+      '<div style="display:flex;gap:4px;margin-top:4px"><input id="olJid" placeholder="Dán ID bạn bè" maxlength="12" inputmode="numeric" style="flex:1" onkeydown="event.stopPropagation();if(event.key===\'Enter\')TWE_ONLINE.joinId()"><button style="background:#16a34a" onclick="TWE_ONLINE.joinId()">VÀO PHÒNG</button></div><div class="mu" style="font-size:11px;margin-top:4px">Bạn bè phải đang online và đang ở trong một phòng. Bấm vào <b>#ID</b> trong chat để điền nhanh.</div></div>';
   }
 
   /* ============ Hook vào game ============ */
@@ -483,6 +519,7 @@
   };
   function netTick() {
     if (!player) return;
+    const fz = window.__admFreeze; if (fz && performance.now() < fz.until) { player.x = fz.x; player.y = fz.y; player.cd = 12 }
     // 1) Đạn / bẫy / laser mới (của mình, và của bot/NPC nếu là chủ phòng)
     const groups = new Map(), grp = n => { let g = groups.get(n); if (!g) { g = { n, p: [], l: [], tr: [] }; groups.set(n, g) } return g };
     for (let i = proj.length - 1; i >= 0; i--) {
@@ -501,6 +538,7 @@
     if (frame - lastSt >= 3) {
       lastSt = frame;
       const st = { t: 'st', x: r1(player.x), y: r1(player.y), a: r2(player.ang), hp: Math.max(0, Math.round(player.hp)), mh: Math.round(player.maxHp), tk: player.typeKey, bd: r1(player.body), dm: Math.round(player.dmg || 10) };
+      if (window.TWE_ADM && TWE_ADM.invisible && window.TWE_ACCOUNT && TWE_ACCOUNT.isAdmin) st.iv = 1; // admin tàng hình
       if (MODE === 'koth') st.z = Math.hypot(player.x - C0(), player.y - C0()) < HILL_R ? 1 : 0;
       send(st);
     }
@@ -619,7 +657,7 @@
   const css = document.createElement('style');
   css.textContent = '#ol{z-index:25;background:#020617;overflow:auto}#ol .pn{max-width:780px;width:100%;box-sizing:border-box}#ol select,#ol input{font-size:14px}' +
     '.olp{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:#0f172a;border:1px solid #334155;margin:4px 0;text-align:left}' +
-    '.olt{flex:1;min-width:200px}.olH{font-weight:700;margin-bottom:4px}' +
+    '.olR{max-width:420px!important;text-align:left}.olt{flex:1;min-width:200px}.olH{font-weight:700;margin-bottom:4px}' +
     '.olm{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;cursor:pointer;text-align:left;font-weight:400;min-width:200px;flex:1}' +
     '.olm b{font-size:15px}.olm span{font-size:11px;color:#94a3b8}.olm:hover{border-color:#a78bfa;background:#1e1b4b}' +
     '#olHud .pn{padding:4px 10px;font-size:12px}';
@@ -667,7 +705,7 @@
     if (view === 'end' && endInfo) return renderEnd();
     if (view === 'room' && room) return renderRoom();
     // Trang chủ online
-    el.innerHTML = '<h1 style="font-size:clamp(24px,5vw,42px)">🌐 CHƠI ONLINE</h1>' +
+    const homeL = '<h1 style="font-size:clamp(24px,5vw,42px)">🌐 CHƠI ONLINE</h1>' +
       '<div class="mu" style="max-width:600px">Cùng chế độ như offline và 2 chế độ mới. Tạo phòng rồi gửi mã cho bạn bè, hoặc nhập mã để vào.</div>' +
       (status ? '<div class="pn" style="color:#fcd34d">' + esc(status) + '</div>' : '') +
       '<div class="pn" style="display:flex;flex-direction:column;gap:8px"><div class="row"><span>Tên hiển thị' + (window.TWE_ACCOUNT && TWE_ACCOUNT.user ? ' <span class="mu" style="font-size:11px">(tài khoản #' + TWE_ACCOUNT.user.id + ')</span>' : '') + '</span><input id="olName" maxlength="16" value="' + esc(p.name) + '" ' + (window.TWE_ACCOUNT && TWE_ACCOUNT.user ? 'readonly' : '') + ' onchange="TWE_ONLINE.setName(this.value)" style="width:180px"></div>' +
@@ -679,12 +717,14 @@
       '<div class="pn" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' + (curMode() === 'ws' ? '<button style="background:#7c3aed" onclick="TWE_ONLINE.quick()">⚡ GHÉP TRẬN NHANH</button>' : '') + '<input id="olCode" maxlength="4" placeholder="MÃ PHÒNG" style="width:120px;text-transform:uppercase;text-align:center"><button onclick="TWE_ONLINE.join($(\'olCode\').value)">VÀO PHÒNG</button>' + (curMode() === 'ws' ? '<button style="background:#334155" onclick="TWE_ONLINE.list()">🔄 Danh sách</button>' : '') + '</div>' +
       (rooms.length ? '<div class="pn"><div class="olH">Phòng công khai</div>' + rooms.map(r => '<div class="olp"><b style="width:56px">' + r.code + '</b><span style="flex:1">' + (MODES[r.mode] ? MODES[r.mode].ico : '') + ' ' + esc(r.host || '?') + ' · ' + r.n + '/' + r.max + ' ' + (r.state === 'lobby' ? '' : '· <span style="color:#fbbf24">đang đấu</span>') + '</span><button onclick="TWE_ONLINE.join(\'' + r.code + '\')">VÀO</button></div>').join('') + '</div>' : '') +
       '<button class="red" onclick="TWE_ONLINE.close()">✕ ĐÓNG</button>';
+    el.innerHTML = '<div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:flex-start;width:100%;max-width:1180px"><div style="flex:1 1 430px;min-width:300px;display:flex;flex-direction:column;align-items:center;gap:8px">' + homeL + '</div><div style="flex:0 1 400px;min-width:280px;width:100%">' + chatHtml() + '</div></div>';
+    renderG();
   }
 
   function renderRoom() {
     const el = $('ol'), r = room, isHost = r.host === myId, me = r.players.find(p => p.id === myId) || {}, md = r.cfg.mode, teamMode = md === 'team' || md === 'koth';
     const keys = teamMode ? TEAMALL.slice(0, r.cfg.teams) : [];
-    const pl = p => '<div class="olp"' + (p.id === myId ? ' style="border-color:#fcd34d"' : '') + '><span style="flex:1">' + (p.id === r.host ? '👑 ' : '') + esc(p.name) + '<br><span class="mu" style="font-size:11px">' + esc(md === 'pve' ? 'xe theo tiến trình' : tkName(p.tk)) + '</span></span>' + (p.id === r.host ? '' : (p.ready ? '<b style="color:#22c55e">SẴN SÀNG</b>' : '<span class="mu">chờ</span>')) + (isHost && p.id !== myId ? '<button class="red" style="padding:2px 7px" onclick="TWE_ONLINE.kick(\'' + p.id + '\')">✕</button>' : '') + '</div>';
+    const pl = p => '<div class="olp"' + (p.id === myId ? ' style="border-color:#fcd34d"' : '') + '><span style="flex:1">' + (p.id === r.host ? '👑 ' : '') + (p.adm ? '🛠️ ' : '') + esc(p.name) + (p.aid ? ' <span class="mu" style="font-size:10px">#' + p.aid + '</span>' : '') + '<br><span class="mu" style="font-size:11px">' + esc(md === 'pve' ? 'xe theo tiến trình' : tkName(p.tk)) + '</span></span>' + (p.id === r.host ? '' : (p.ready ? '<b style="color:#22c55e">SẴN SÀNG</b>' : '<span class="mu">chờ</span>')) + (isHost && p.id !== myId ? '<button class="red" style="padding:2px 7px" onclick="TWE_ONLINE.kick(\'' + p.id + '\')">✕</button>' : '') + '</div>';
     const cap = teamMode ? Math.ceil(r.cfg.max / r.cfg.teams) : r.cfg.max;
     const col = t => '<div class="olt"><div class="olH" style="color:' + tcol(t) + '">ĐỘI ' + TN[t] + ' (' + r.players.filter(p => p.team === t).length + '/' + cap + ')' + (r.cfg.bots ? ' <span class="mu" style="font-size:11px">+ bot</span>' : '') + '</div>' +
       r.players.filter(p => p.team === t).map(pl).join('') +
@@ -751,9 +791,17 @@
   window.TWE_ONLINE = {
     open() {
       view = room ? 'room' : 'home'; status = ''; show();
-      if (!prefs().mode && !autoWs && /^https?:$/.test(location.protocol)) fetch('/health').then(r => r.json()).then(j => { if (j && j.ok && j.rooms !== undefined) { autoWs = true; if (view === 'home') render() } }).catch(() => { });
+      if (curMode() === 'ws') connect().catch(() => { });
+      if (!prefs().mode && !autoWs && /^https?:$/.test(location.protocol)) fetch('/health').then(r => r.json()).then(j => { if (j && j.ok && j.rooms !== undefined) { autoWs = true; if (view === 'home') render(); connect().catch(() => { }) } }).catch(() => { });
     },
     close() { hideOL() },
+    gsend() { const i = document.getElementById('olGi'); if (!i) return; const v = i.value.trim(); if (!v) return; i.value = ''; send({ t: 'gchat', m: v }) },
+    fillId(id) { const i = document.getElementById('olJid'); if (i) { i.value = id; i.focus() } },
+    async joinId() {
+      const id = (document.getElementById('olJid') || {}).value || ''; const v = id.trim();
+      if (!/^\d+$/.test(v)) { status = 'Nhập ID bạn bè (chỉ gồm số)'; return render() }
+      try { await connect(); send({ t: 'joinid', aid: v, name: prefs().name, tk: myTankFor() }) } catch (e) { }
+    },
     setName(v) { if (window.TWE_ACCOUNT && TWE_ACCOUNT.user) return; v = String(v).trim().slice(0, 16) || 'Xe'; lsSet({ name: v }); send({ t: 'hello', name: v }) },
     setUrl(v) { lsSet({ url: String(v).trim() }); if (ws) { try { ws.close() } catch (e) { } ws = null } },
     pick(k) { lsSet({ tk: k }); send({ t: 'pick', tk: k }) },

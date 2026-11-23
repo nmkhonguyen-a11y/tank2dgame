@@ -11,11 +11,12 @@ const PORT = +process.env.PORT || 8080;
 const ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean); // để trống = cho phép tất cả
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const COUNTDOWN_MS = 5000, RESET_MS = 12000, MAX_FRAME = 256 * 1024;
-const hub = require('./hub.js').createHub();
-const accounts = require('./accounts.js').create(); // tài khoản, ID, cloud save, tặng quà
+let hub, accounts; // hub (phòng/trận) và accounts (tài khoản) gọi lẫn nhau qua các hàm bên dưới
+accounts = require('./accounts.js').create({ hooks: { kick: id => hub.kickAid(id), announce: o => hub.broadcastAll(o), cmd: (id, o) => hub.sendToAid(id, o) } });
+hub = require('./hub.js').createHub({ verify: tok => accounts.verify(tok), isMuted: id => accounts.isMuted(id) });
 const rooms = hub.rooms, conns = hub.conns;
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8' };
-const STATIC_FILES = ['index.html', 'online.js', 'hub.js', 'account.js', 'peerjs.min.js'];
+const STATIC_FILES = ['index.html', 'online.js', 'hub.js', 'account.js', 'admin.js', 'peerjs.min.js'];
 
 /* ---------------- HTTP ---------------- */
 const server = http.createServer((req, res) => {
@@ -57,7 +58,7 @@ server.on('upgrade', (req, socket) => {
   socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
   socket.setNoDelay(true);
   const c = { socket, buf: Buffer.alloc(0), frag: [], alive: true, closing: false };
-  c.h = hub.addConn(o => send(c, o));
+  c.h = hub.addConn(o => send(c, o)); c.h.close = () => closeConn(c, 1008);
   sockets.add(c);
   socket.on('data', d => {
     c.buf = Buffer.concat([c.buf, d]);

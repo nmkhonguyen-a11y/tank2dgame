@@ -50,18 +50,18 @@
 
   function createHub(opt) {
     opt = opt || {};
-    const rooms = new Map(), conns = new Map();
+    const rooms = new Map(), conns = new Map(), aidIdx = new Map(), ghist = []; // aidIdx: ID tài khoản -> kết nối đang online
     let nextId = 1;
     function send(c, obj) { try { c.tx(obj); } catch (e) { } }
 
     /** Thêm một kết nối mới. tx(obj) = cách gửi tin cho người này. Trả về đối tượng kết nối. */
     function addConn(tx) {
-      const c = { tx, id: (nextId++).toString(36), name: 'Player', room: null, tokens: 0, win: Date.now(), team: 'b', ready: false, tk: 'basic', kills: 0, deaths: 0, lastDie: 0, alive: true, place: 0, inz: false };
+      const c = { tx, id: (nextId++).toString(36), name: 'Player', room: null, tokens: 0, win: Date.now(), team: 'b', ready: false, tk: 'basic', kills: 0, deaths: 0, lastDie: 0, alive: true, place: 0, inz: false, aid: '', uadmin: false, lastG: 0 };
       conns.set(c.id, c);
       send(c, { t: 'welcome', id: c.id });
       return c;
     }
-    function drop(c) { if (!conns.has(c.id)) return; conns.delete(c.id); leaveRoom(c); }
+    function drop(c) { if (!conns.has(c.id)) return; conns.delete(c.id); if (c.aid && aidIdx.get(c.aid) === c) aidIdx.delete(c.aid); leaveRoom(c); }
     function closeAll() { rooms.forEach(r => { clearInterval(r.timer); clearTimeout(r.resetT); clearTimeout(r.cdT); }); rooms.clear(); conns.clear(); }
 
     /* ---------------- Phòng ---------------- */
@@ -87,7 +87,7 @@
     function roomInfo(r) {
       return {
         t: 'room', code: r.code, host: r.host, state: r.state, cfg: r.cfg, score: r.score,
-        players: members(r).map(p => ({ id: p.id, name: p.name, team: p.team, ready: p.ready, tk: p.tk, kills: p.kills, deaths: p.deaths, alive: p.alive !== false }))
+        players: members(r).map(p => ({ id: p.id, aid: p.aid || '', adm: !!p.uadmin, name: p.name, team: p.team, ready: p.ready, tk: p.tk, kills: p.kills, deaths: p.deaths, alive: p.alive !== false }))
       };
     }
     const pushRoom = r => bcast(r, roomInfo(r));
@@ -202,6 +202,13 @@
     }
 
     /* ---------------- Xử lý tin nhắn ---------------- */
+    const setName = (c, n) => { if (!c.aid) c.name = cleanName(n || c.name); };
+    function joinChecked(c, t) { // trả về thông báo lỗi hoặc '' nếu vào được
+      if (isFull(t)) return 'Phòng đã đầy';
+      if (t.state === 'ended') return 'Phòng đang tổng kết, thử lại sau vài giây';
+      if (t.cfg.mode === 'br' && t.state !== 'lobby') return 'Trận sinh tồn đã bắt đầu, không vào muộn được';
+      joinRoom(c, t); return '';
+    }
     function handle(c, m) {
       const now = Date.now();
       if (now - c.win > 1000) { c.win = now; c.tokens = 0; }
@@ -209,21 +216,47 @@
       if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
       const r = c.room, isHost = !!r && r.host === c.id;
       switch (m.t) {
-        case 'hello': c.name = cleanName(m.name); send(c, { t: 'welcome', id: c.id }); if (r) pushRoom(r); break; // gửi lại welcome phòng khi tin đầu bị lỡ
+        case 'hello': setName(c, m.name); send(c, { t: 'welcome', id: c.id }); if (r) pushRoom(r); break; // gửi lại welcome phòng khi tin đầu bị lỡ
         case 'ping': send(c, { t: 'pong', ts: m.ts }); break;
         case 'rooms': send(c, { t: 'rooms', list: [...rooms.values()].filter(x => x.cfg.pub && x.state !== 'ended').map(x => ({ code: x.code, host: (x.players.get(x.host) || {}).name, n: x.players.size, max: x.cfg.max, state: x.state, lv: x.cfg.lv, kills: x.cfg.kills, mode: x.cfg.mode })).slice(0, 30) }); break;
-        case 'create': c.name = cleanName(m.name || c.name); if (m.tk) c.tk = String(m.tk).slice(0, 40); createRoom(c, m.cfg); break;
+        case 'create': setName(c, m.name); if (m.tk) c.tk = String(m.tk).slice(0, 40); createRoom(c, m.cfg); break;
         case 'join': {
-          c.name = cleanName(m.name || c.name); if (m.tk) c.tk = String(m.tk).slice(0, 40);
+          setName(c, m.name); if (m.tk) c.tk = String(m.tk).slice(0, 40);
           const t = rooms.get(String(m.code || '').toUpperCase().trim());
           if (!t) return send(c, { t: 'err', m: 'Không tìm thấy phòng ' + (m.code || '') });
-          if (isFull(t)) return send(c, { t: 'err', m: 'Phòng đã đầy' });
-          if (t.state === 'ended') return send(c, { t: 'err', m: 'Phòng đang tổng kết, thử lại sau vài giây' });
-          if (t.cfg.mode === 'br' && t.state !== 'lobby') return send(c, { t: 'err', m: 'Trận sinh tồn đã bắt đầu, không vào muộn được' });
-          joinRoom(c, t); break;
+          const e = joinChecked(c, t); if (e) send(c, { t: 'err', m: e });
+          break;
+        }
+        case 'auth': { // gắn tài khoản (token đăng nhập) vào kết nối: tên theo tài khoản, có ID để bạn bè tìm
+          const u = opt.verify ? opt.verify(m.token) : null;
+          if (!u) { send(c, { t: 'authfail' }); break; }
+          if (c.aid && aidIdx.get(c.aid) === c) aidIdx.delete(c.aid);
+          const old = aidIdx.get(u.id); if (old && old !== c) { old.aid = ''; send(old, { t: 'forced', m: 'Tài khoản vừa đăng nhập ở nơi khác' }); }
+          c.aid = u.id; c.uadmin = !!u.admin; c.name = cleanName(u.username); aidIdx.set(u.id, c);
+          send(c, { t: 'authed', aid: u.id, admin: c.uadmin }); send(c, { t: 'ghist', list: ghist });
+          if (r) pushRoom(r); break;
+        }
+        case 'gchat': { // phòng chat chung cho mọi người đang online
+          const txt = String(m.m || '').trim().slice(0, 160);
+          if (!txt || now - c.lastG < 700) break;
+          if (c.aid && opt.isMuted && opt.isMuted(c.aid)) { send(c, { t: 'gerr', m: 'Bạn đang bị cấm chat' }); break; }
+          c.lastG = now;
+          const o = { t: 'gchat', name: c.name, aid: c.aid || '', admin: c.uadmin, m: txt, ts: now };
+          ghist.push(o); if (ghist.length > 40) ghist.shift();
+          conns.forEach(x => send(x, o)); break;
+        }
+        case 'joinid': { // dán ID bạn bè để vào đúng phòng của họ
+          setName(c, m.name); if (m.tk) c.tk = String(m.tk).slice(0, 40);
+          const t = aidIdx.get(String(m.aid || '').trim());
+          if (!t) return send(c, { t: 'err', m: 'ID này hiện không online' });
+          if (t === c) return send(c, { t: 'err', m: 'Đó là ID của chính bạn' });
+          if (!t.room) return send(c, { t: 'err', m: 'Bạn này chưa ở trong phòng nào' });
+          if (t.room === c.room) return send(c, { t: 'err', m: 'Bạn đã ở cùng phòng' });
+          const e = joinChecked(c, t.room); if (e) send(c, { t: 'err', m: e });
+          break;
         }
         case 'quick': {
-          c.name = cleanName(m.name || c.name); if (m.tk) c.tk = String(m.tk).slice(0, 40);
+          setName(c, m.name); if (m.tk) c.tk = String(m.tk).slice(0, 40);
           const t = findQuick();
           if (t) joinRoom(c, t); else createRoom(c, { pub: true });
           break;
@@ -308,11 +341,15 @@
           checkWin(r);
           break;
         }
-        case 'chat': if (r) bcast(r, { t: 'chat', id: c.id, name: c.name, team: c.team, m: String(m.m || '').slice(0, 120) }); break;
+        case 'chat': if (r && !(c.aid && opt.isMuted && opt.isMuted(c.aid))) bcast(r, { t: 'chat', id: c.id, name: c.name, team: c.team, m: String(m.m || '').slice(0, 120) }); break;
       }
     }
 
-    return { rooms, conns, addConn, handle, drop, closeAll };
+    /* ---- cho server.js / quản trị viên ---- */
+    function kickAid(aid) { const c = aidIdx.get(String(aid)); if (!c) return false; send(c, { t: 'forced', m: 'Bạn đã bị đăng xuất khỏi máy chủ' }); leaveRoom(c); try { c.close && c.close(); } catch (e) { } return true; }
+    function sendToAid(aid, obj) { const c = aidIdx.get(String(aid)); if (!c) return false; send(c, obj); return true; }
+    function broadcastAll(obj) { conns.forEach(c => send(c, obj)); }
+    return { rooms, conns, addConn, handle, drop, closeAll, kickAid, sendToAid, broadcastAll };
   }
   return { createHub, cleanCfg, TEAMALL, MODE_DEF };
 });
