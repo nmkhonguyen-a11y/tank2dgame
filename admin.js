@@ -2,7 +2,7 @@
 /* Tank Warfare: Evolution — CÔNG CỤ QUẢN TRỊ (chỉ tài khoản admin)
    A) Bảng quản trị (cần NHẬP LẠI MẬT KHẨU): tra cứu/chỉnh sửa mọi tài khoản, đặt lại mật khẩu, khóa/cấm chat, mã quà,
       đăng/gỡ xe lên cửa hàng, thông báo toàn máy chủ, lệnh lên người chơi online, sao lưu/khôi phục, tải danh sách .docx.
-   B) Công cụ trong game (phím F2): bay/xuyên tường, bất tử, vô hạn gems/EXP, chỉnh chỉ số, dịch chuyển, tàng hình, triệu hồi,
+   B) Công cụ trong game (phím 1): bay/xuyên tường, bất tử, vô hạn gems/EXP, chỉnh chỉ số, dịch chuyển, tàng hình, triệu hồi,
       quét sạch, khung va chạm, ngày/đêm + mưa, bảng lệnh.
    Quyền thật sự được máy chủ kiểm tra; phần công cụ trong game chỉ chạy ở máy của chính admin. */
 (function () {
@@ -47,7 +47,7 @@
     }
     const tabs = [['users', '👥 Tài khoản'], ['codes', '🎟️ Mã quà'], ['shop', '🛒 Cửa hàng'], ['sys', '📡 Hệ thống'], ['tools', '🎮 Công cụ game']];
     let body = '';
-    if (tab === 'users') body = usersHtml(); else if (tab === 'codes') body = codesHtml(); else if (tab === 'shop') body = shopHtml(); else if (tab === 'sys') body = sysHtml(); else body = '<div class="pn"><b>🎮 Công cụ trong game</b><div class="mu">Mở bảng công cụ bay/xuyên tường, bất tử, vô hạn, dịch chuyển, triệu hồi, bảng lệnh... Trong lúc chơi bấm <b>F2</b> để bật/tắt.</div><div style="text-align:center;margin-top:8px"><button style="background:#16a34a" onclick="TWE_ADMIN.tools(true)">MỞ BẢNG CÔNG CỤ</button></div></div>';
+    if (tab === 'users') body = usersHtml(); else if (tab === 'codes') body = codesHtml(); else if (tab === 'shop') body = shopHtml(); else if (tab === 'sys') body = sysHtml(); else body = '<div class="pn"><b>🎮 Công cụ trong game</b><div class="mu">Mở bảng công cụ bay/xuyên tường, bất tử, vô hạn, dịch chuyển, triệu hồi, bảng lệnh... Trong lúc chơi bấm <b>1</b> để bật/tắt.</div><div style="text-align:center;margin-top:8px"><button style="background:#16a34a" onclick="TWE_ADMIN.tools(true)">MỞ BẢNG CÔNG CỤ</button></div></div>';
     ov.innerHTML = '<h1 style="font-size:clamp(22px,4vw,34px)">🛠️ QUẢN TRỊ · ' + esc(AC().user.username) + ' #' + AC().user.id + '</h1>' + msg +
       '<div class="pn" style="padding:6px"><div style="display:flex;gap:6px;flex-wrap:wrap">' + tabs.map(t => '<button style="' + (tab === t[0] ? 'background:#7c3aed' : 'background:#1e293b') + '" onclick="TWE_ADMIN.tab(\'' + t[0] + '\')">' + t[1] + '</button>').join('') + '<button class="red" style="margin-left:auto" onclick="TWE_ADMIN.close()">✕ ĐÓNG</button></div></div>' + body;
   }
@@ -158,7 +158,7 @@
     tools(show) { toolsToggle(show) }
   };
 
-  /* ================= B) CÔNG CỤ TRONG GAME (F2) ================= */
+  /* ================= B) CÔNG CỤ TRONG GAME (phím 1) ================= */
   let logBuf = 'Gõ "help" để xem lệnh.\n';
   const box = document.createElement('div'); box.id = 'admTools'; box.style.display = 'none'; document.body.appendChild(box);
   const clampXY = (x, y) => [Math.max(40, Math.min(MAP - 40, x)), Math.max(40, Math.min(MAP - 40, y))];
@@ -167,7 +167,7 @@
   function toolsHtml() {
     const tg = (k, l) => '<button class="' + (ADM[k] ? 'on' : '') + '" onclick="TWE_ADM_UI.tog(\'' + k + '\')">' + l + '</button>';
     const near = (typeof enemies !== 'undefined' ? enemies : []).filter(e => !e.dead && (e.label || e.nm)).slice(0, 40);
-    return '<div style="display:flex;justify-content:space-between"><b style="color:#f59e0b">🎮 CÔNG CỤ ADMIN</b><a href="#" onclick="TWE_ADMIN.tools(false);return false" style="color:#f87171">✕ (F2)</a></div>' +
+    return '<div style="display:flex;justify-content:space-between"><b style="color:#f59e0b">🎮 CÔNG CỤ ADMIN</b><a href="#" onclick="TWE_ADMIN.tools(false);return false" style="color:#f87171">✕ (1)</a></div>' +
       '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
       '<hr style="border-color:#334155"><b>⚙️ Chỉ số</b><div>Tốc độ ×<input id="adS" type="number" step="0.5" value="' + ADM.speed + '"> Sát thương ×<input id="adD" type="number" step="0.5" value="' + ADM.dmg + '"> Tốc bắn ×<input id="adR" type="number" step="0.5" value="' + ADM.rate + '"> <button onclick="TWE_ADM_UI.stats()">ÁP DỤNG</button></div>' +
       '<div><button onclick="TWE_ADM_UI.lv(10)">+10 cấp</button><button onclick="TWE_ADM_UI.lv(100)">+100 cấp</button><button onclick="TWE_ADM_UI.lv(1000)">+1000 cấp</button><button onclick="TWE_ADM_UI.maxst()">Tối đa chỉ số</button><button onclick="TWE_ADM_UI.heal()">Hồi máu</button></div>' +
@@ -181,7 +181,7 @@
     const on = show === undefined ? box.style.display === 'none' : !!show;
     box.style.display = on ? '' : 'none'; if (on) { box.innerHTML = toolsHtml(); const l = $q('admLog'); if (l) l.scrollTop = 1e9 }
   }
-  addEventListener('keydown', e => { if (e.code === 'F2' && isAdm()) { e.preventDefault(); toolsToggle() } }, true);
+  addEventListener('keydown', e => { const el = e.target, typing = el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable); if (e.code === 'Digit1' && !e.repeat && !typing && isAdm()) { e.preventDefault(); e.stopImmediatePropagation(); toolsToggle() } }, true);
   const refreshBox = () => { if (box.style.display !== 'none') { const c = $q('admCon') ? $q('admCon').value : ''; box.innerHTML = toolsHtml(); if ($q('admCon')) $q('admCon').value = c } };
 
   function summon(n, boss) {
