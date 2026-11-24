@@ -4,7 +4,7 @@
       đăng/gỡ xe lên cửa hàng, thông báo toàn máy chủ, lệnh lên người chơi online, sao lưu/khôi phục, tải danh sách .docx.
    B) Công cụ trong game (phím 1): bay/xuyên tường, bất tử, vô hạn gems/EXP, chỉnh chỉ số, dịch chuyển, tàng hình, triệu hồi,
       quét sạch, khung va chạm, ngày/đêm + mưa/tuyết/bão, đóng băng quái, chiếm hữu, vẽ/xóa tường (map editor),
-      tạo vật phẩm/soi túi đồ, bóng tối (chỉ thấy quanh mình), vô hạn đạn, bảng lệnh có lệnh dạng /kick /ban /tp ...
+      tạo vật phẩm/soi túi đồ, bóng tối (chỉ thấy quanh mình; NPC cũng bị tối), vô hạn đạn, bảng lệnh có lệnh dạng /kick /ban /tp ...
    C) Màn hình chờ 10 giây mỗi khi chết (vào lại game hoặc đổi xe tăng) — áp dụng cho mọi người chơi.
    Quyền thật sự được máy chủ kiểm tra; phần công cụ trong game chỉ chạy ở máy của chính admin. */
 (function () {
@@ -12,7 +12,7 @@
   const TIERS = ['C', 'B', 'A', 'S', 'SS', 'SSS', 'SSSS', 'SSSSS', 'ULTRA', 'HYPER', 'MYTHIC'];
   const AC = () => window.TWE_ACCOUNT, isAdm = () => !!(AC() && AC().isAdmin);
   const $q = id => document.getElementById(id);
-  const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120, dark: false, darkR: 260, infAmmo: false, spec: null };
+  const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120, dark: false, darkNpc: true, darkR: 260, infAmmo: false, spec: null };
   let admTok = '', admExp = 0, tab = 'users', msg = '', users = [], total = 0, sel = null, codes = [], shop = [], backups = [], lastQ = '';
 
   /* ================= A) BẢNG QUẢN TRỊ ================= */
@@ -170,7 +170,7 @@
     const tg = (k, l) => '<button class="' + (ADM[k] ? 'on' : '') + '" onclick="TWE_ADM_UI.tog(\'' + k + '\')">' + l + '</button>';
     const near = (typeof enemies !== 'undefined' ? enemies : []).filter(e => !e.dead && (e.label || e.nm)).slice(0, 40);
     return '<div style="display:flex;justify-content:space-between"><b style="color:#f59e0b">🎮 CÔNG CỤ ADMIN</b><a href="#" onclick="TWE_ADMIN.tools(false);return false" style="color:#f87171">✕ (1)</a></div>' +
-      '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + tg('snow', '❄️ Tuyết') + tg('storm', '⛈️ Bão') + tg('freezeAll', '🧊 Đóng băng quái') + tg('dark', '🕶️ Bóng tối') + tg('infAmmo', '🔫 Vô hạn đạn') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
+      '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + tg('snow', '❄️ Tuyết') + tg('storm', '⛈️ Bão') + tg('freezeAll', '🧊 Đóng băng quái') + tg('dark', '🕶️ Bóng tối') + tg('darkNpc', '🤖 NPC cũng bị tối') + tg('infAmmo', '🔫 Vô hạn đạn') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
       '<div>Tầm nhìn bóng tối <input id="adDr" type="number" value="' + ADM.darkR + '" style="width:70px"> <button onclick="TWE_ADM_UI.darkR()">ÁP DỤNG</button></div>' +
       '<hr style="border-color:#334155"><b>⚙️ Chỉ số</b><div>Tốc độ ×<input id="adS" type="number" step="0.5" value="' + ADM.speed + '"> Sát thương ×<input id="adD" type="number" step="0.5" value="' + ADM.dmg + '"> Tốc bắn ×<input id="adR" type="number" step="0.5" value="' + ADM.rate + '"> <button onclick="TWE_ADM_UI.stats()">ÁP DỤNG</button></div>' +
       '<div><button onclick="TWE_ADM_UI.lv(10)">+10 cấp</button><button onclick="TWE_ADM_UI.lv(100)">+100 cấp</button><button onclick="TWE_ADM_UI.lv(1000)">+1000 cấp</button><button onclick="TWE_ADM_UI.maxst()">Tối đa chỉ số</button><button onclick="TWE_ADM_UI.heal()">Hồi máu</button></div>' +
@@ -247,7 +247,37 @@
     e.preventDefault(); e.stopImmediatePropagation();
     wallAt(e.clientX * zm() + camX, e.clientY * zm() + camY, ADM.brush === 'del');
   }, true);
-  const _eUpd = Enemy.prototype.update; Enemy.prototype.update = function () { if (isAdm() && ADM.freezeAll) return; return _eUpd.apply(this, arguments) };
+  /* ---- NPC cũng bị tối: chỉ thấy mục tiêu trong tầm nhìn, đi chậm khi mù, phục kích/quét góc, rút lui khi yếu hoặc bị vây ---- */
+  function blindUpdate(e, orig, args) {
+    const R2 = Math.max(60, ADM.darkR) ** 2, d2 = o => (o.x - e.x) ** 2 + (o.y - e.y) ** 2, pvp = mode === 'pvp', foe = o => !pvp || o.team !== e.team;
+    const hidden = [], vis = [];
+    enemies.forEach(o => { if (o === e || o.dead) return; if (d2(o) > R2) { o.dead = true; hidden.push(o) } else if (foe(o)) vis.push(o) });
+    const pSees = !!player && !player.dead && d2(player) <= R2; if (pSees && foe(player)) vis.push(player);
+    const pDead0 = player.dead, tier0 = e.tier, spd0 = e.spd; let tierHack = null, scaled = false;
+    if (!pSees) { player.dead = true; e.aggro = 0; tierHack = e.tier = Math.min(e.tier, 2) }
+    try {
+      if (e._amb === undefined) e._amb = Math.random() < .35;
+      if (!vis.length) {
+        e.spd = spd0 * .6; scaled = true;
+        if (e._amb && !T4 && (frame + (e.nv || 0) * 37) % 600 < 240) { e.ang += .03; if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen); if (e.cd > 0) e.cd--; return }
+      } else if (e.hp < e.maxHp * .35 || (vis.length >= 3 && e.hp < e.maxHp * .7)) {
+        let near = vis[0], bd = d2(near); vis.forEach(o => { const d = d2(o); if (d < bd) { bd = d; near = o } });
+        const dx = e.x - near.x, dy = e.y - near.y, dd = Math.hypot(dx, dy) || 1, sp = (spd0 || 2) * 1.1, [nx, ny] = clampXY(e.x + dx / dd * sp, e.y + dy / dd * sp);
+        if (!hitWall(nx, e.y, e.r)) e.x = nx; if (!hitWall(e.x, ny, e.r)) e.y = ny; e.ang = Math.atan2(dy, dx);
+        if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen); if (e.cd > 0) e.cd--; return;
+      }
+      return orig.apply(e, args);
+    } finally {
+      hidden.forEach(o => { o.dead = false }); player.dead = pDead0;
+      if (tierHack !== null && e.tier === tierHack) e.tier = tier0; if (scaled && e.spd === spd0 * .6) e.spd = spd0;
+    }
+  }
+  const _eUpd = Enemy.prototype.update;
+  Enemy.prototype.update = function () {
+    if (isAdm() && ADM.freezeAll) return;
+    if (isAdm() && ADM.dark && ADM.darkNpc && live() && !SIM && !WATCH && !this.net) return blindUpdate(this, _eUpd, arguments);
+    return _eUpd.apply(this, arguments);
+  };
 
 
   /* ---- Bóng tối: chỉ nhìn thấy vùng quanh xe (vẽ phủ lên toàn cảnh, trước HUD) ---- */
@@ -295,6 +325,7 @@
     }
     return _respawn.apply(this, arguments);
   };
+  const _loop = loop; loop = function () { if (dwOn && dwPvp && running) { requestAnimationFrame(loop); return } return _loop.apply(this, arguments) }; // đóng băng cả trận khi đang chờ hồi sinh (PvP)
   addEventListener('keydown', e => { if (dwOn && dwPvp && running && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) { e.stopImmediatePropagation(); e.preventDefault() } }, true);
 
   /* ---- Lệnh dạng /kick /ban /tp ... trong bảng lệnh ---- */
@@ -404,9 +435,9 @@
       const [c, ...a] = line.split(/\s+/), n = +a[0];
       try {
         switch (c.toLowerCase()) {
-          case 'help': log('Công cụ: god noclip invis hitbox night rain snow storm freeze inf dark [R|off] ammo | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | spawn N | boss | killall | tank KEY | possess | brush add|del [cỡ] | undo | resetmap | inv | take KEY | deathwait [giây] | js CODE'); log('Lệnh /: /kick /ban /unban /mute /unmute /freeze [tên] · /slap /kill /spec /heal [tên] · /tp X Y · /tp [A] [B] · /goto /bring [tên] · /give [tên] KEY · /map small|big · /restart (/rr) · /bots N'); break;
+          case 'help': log('Công cụ: god noclip invis hitbox night rain snow storm freeze inf dark [R|off|npc] ammo | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | spawn N | boss | killall | tank KEY | possess | brush add|del [cỡ] | undo | resetmap | inv | take KEY | deathwait [giây] | js CODE'); log('Lệnh /: /kick /ban /unban /mute /unmute /freeze [tên] · /slap /kill /spec /heal [tên] · /tp X Y · /tp [A] [B] · /goto /bring [tên] · /give [tên] KEY · /map small|big · /restart (/rr) · /bots N'); break;
           case 'god': U.tog('god'); break; case 'noclip': case 'fly': U.tog('noclip'); break; case 'invis': U.tog('invisible'); break; case 'hitbox': U.tog('hitbox'); break; case 'night': U.tog('night'); break; case 'rain': U.tog('rain'); break; case 'snow': U.tog('snow'); break; case 'storm': U.tog('storm'); break; case 'freeze': if (a.length) slash('freeze', a); else { U.tog('freezeAll'); log('Đóng băng quái: ' + (ADM.freezeAll ? 'BẬT' : 'TẮT')) } break;
-          case 'dark': if (a[0] === 'off') ADM.dark = false; else { if (+a[0] >= 60) ADM.darkR = Math.round(+a[0]); ADM.dark = a[0] === undefined ? !ADM.dark : true } log('Bóng tối: ' + (ADM.dark ? 'BẬT (tầm nhìn ' + ADM.darkR + ')' : 'TẮT')); break;
+          case 'dark': if (a[0] === 'npc') { ADM.darkNpc = !ADM.darkNpc; log('NPC cũng bị tối: ' + (ADM.darkNpc ? 'BẬT' : 'TẮT')); break } if (a[0] === 'off') ADM.dark = false; else { if (+a[0] >= 60) ADM.darkR = Math.round(+a[0]); ADM.dark = a[0] === undefined ? !ADM.dark : true } log('Bóng tối: ' + (ADM.dark ? 'BẬT (tầm nhìn ' + ADM.darkR + (ADM.darkNpc ? ', NPC cũng bị tối' : '') + ')' : 'TẮT')); break;
           case 'ammo': case 'infammo': U.tog('infAmmo'); log('Vô hạn đạn: ' + (ADM.infAmmo ? 'BẬT' : 'TẮT')); break;
           case 'deathwait': if (a[0] !== undefined && !isNaN(n)) deathWait = Math.max(0, Math.min(60, Math.round(n))); log('Thời gian chờ khi chết: ' + (deathWait > 0 ? deathWait + ' giây' : 'TẮT')); break;
           case 'kick': case 'ban': case 'unban': case 'mute': case 'unmute': case 'slap': case 'kill': case 'spec': case 'heal': case 'equip': case 'goto': case 'bring': case 'map': case 'changemap': case 'restart': case 'rr': case 'gravity': case 'bots': slash(c.toLowerCase(), a); break; case 'inf': U.all(); break;
