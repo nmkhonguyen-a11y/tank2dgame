@@ -4,14 +4,15 @@
       đăng/gỡ xe lên cửa hàng, thông báo toàn máy chủ, lệnh lên người chơi online, sao lưu/khôi phục, tải danh sách .docx.
    B) Công cụ trong game (phím 1): bay/xuyên tường, bất tử, vô hạn gems/EXP, chỉnh chỉ số, dịch chuyển, tàng hình, triệu hồi,
       quét sạch, khung va chạm, ngày/đêm + mưa/tuyết/bão, đóng băng quái, chiếm hữu, vẽ/xóa tường (map editor),
-      tạo vật phẩm/soi túi đồ, bảng lệnh.
+      tạo vật phẩm/soi túi đồ, bóng tối (chỉ thấy quanh mình), vô hạn đạn, bảng lệnh có lệnh dạng /kick /ban /tp ...
+   C) Màn hình chờ 10 giây mỗi khi chết (vào lại game hoặc đổi xe tăng) — áp dụng cho mọi người chơi.
    Quyền thật sự được máy chủ kiểm tra; phần công cụ trong game chỉ chạy ở máy của chính admin. */
 (function () {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const TIERS = ['C', 'B', 'A', 'S', 'SS', 'SSS', 'SSSS', 'SSSSS', 'ULTRA', 'HYPER', 'MYTHIC'];
   const AC = () => window.TWE_ACCOUNT, isAdm = () => !!(AC() && AC().isAdmin);
   const $q = id => document.getElementById(id);
-  const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120 };
+  const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120, dark: false, darkR: 260, infAmmo: false, spec: null };
   let admTok = '', admExp = 0, tab = 'users', msg = '', users = [], total = 0, sel = null, codes = [], shop = [], backups = [], lastQ = '';
 
   /* ================= A) BẢNG QUẢN TRỊ ================= */
@@ -169,7 +170,8 @@
     const tg = (k, l) => '<button class="' + (ADM[k] ? 'on' : '') + '" onclick="TWE_ADM_UI.tog(\'' + k + '\')">' + l + '</button>';
     const near = (typeof enemies !== 'undefined' ? enemies : []).filter(e => !e.dead && (e.label || e.nm)).slice(0, 40);
     return '<div style="display:flex;justify-content:space-between"><b style="color:#f59e0b">🎮 CÔNG CỤ ADMIN</b><a href="#" onclick="TWE_ADMIN.tools(false);return false" style="color:#f87171">✕ (1)</a></div>' +
-      '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + tg('snow', '❄️ Tuyết') + tg('storm', '⛈️ Bão') + tg('freezeAll', '🧊 Đóng băng quái') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
+      '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + tg('snow', '❄️ Tuyết') + tg('storm', '⛈️ Bão') + tg('freezeAll', '🧊 Đóng băng quái') + tg('dark', '🕶️ Bóng tối') + tg('infAmmo', '🔫 Vô hạn đạn') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
+      '<div>Tầm nhìn bóng tối <input id="adDr" type="number" value="' + ADM.darkR + '" style="width:70px"> <button onclick="TWE_ADM_UI.darkR()">ÁP DỤNG</button></div>' +
       '<hr style="border-color:#334155"><b>⚙️ Chỉ số</b><div>Tốc độ ×<input id="adS" type="number" step="0.5" value="' + ADM.speed + '"> Sát thương ×<input id="adD" type="number" step="0.5" value="' + ADM.dmg + '"> Tốc bắn ×<input id="adR" type="number" step="0.5" value="' + ADM.rate + '"> <button onclick="TWE_ADM_UI.stats()">ÁP DỤNG</button></div>' +
       '<div><button onclick="TWE_ADM_UI.lv(10)">+10 cấp</button><button onclick="TWE_ADM_UI.lv(100)">+100 cấp</button><button onclick="TWE_ADM_UI.lv(1000)">+1000 cấp</button><button onclick="TWE_ADM_UI.maxst()">Tối đa chỉ số</button><button onclick="TWE_ADM_UI.heal()">Hồi máu</button></div>' +
       '<hr style="border-color:#334155"><b>📍 Dịch chuyển</b><div>X<input id="adX" type="number" value="' + (live() ? Math.round(player.x) : 0) + '"> Y<input id="adY" type="number" value="' + (live() ? Math.round(player.y) : 0) + '"> <button onclick="TWE_ADM_UI.tp()">ĐI</button><button onclick="TWE_ADM_UI.center()">Giữa bản đồ</button></div>' +
@@ -247,6 +249,135 @@
   }, true);
   const _eUpd = Enemy.prototype.update; Enemy.prototype.update = function () { if (isAdm() && ADM.freezeAll) return; return _eUpd.apply(this, arguments) };
 
+
+  /* ---- Bóng tối: chỉ nhìn thấy vùng quanh xe (vẽ phủ lên toàn cảnh, trước HUD) ---- */
+  const _minimap = minimap; minimap = function () {
+    if (isAdm() && ADM.dark && live() && !SIM) {
+      const px = player.x - camX, py = player.y - camY, R = Math.max(60, ADM.darkR), g = ctx.createRadialGradient(px, py, R * .5, px, py, R);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore();
+    }
+    const r = _minimap.apply(this, arguments);
+    if (isAdm() && ADM.dark && live()) { try { mc.fillStyle = '#000'; mc.fillRect(0, 0, 130, 130) } catch (e) { } }
+    return r;
+  };
+
+  /* ================= C) MÀN HÌNH CHỜ KHI CHẾT ================= */
+  let deathWait = 10, lastBegin, dwTimer = 0, dwOn = false, dwPvp = false;
+  const dw = document.createElement('div'); dw.id = 'deathWait'; dw.className = 'ov hidden'; dw.style.zIndex = 40;
+  ((($q('over') && $q('over').parentNode) || document.body)).appendChild(dw);
+  ['mousedown', 'mouseup', 'click', 'contextmenu', 'wheel'].forEach(ev => dw.addEventListener(ev, e => e.stopPropagation()));
+  function dwHide() { dwOn = false; dwPvp = false; clearInterval(dwTimer); dw.classList.add('hidden') }
+  function dwShow(title, info, again, pvp) {
+    dwOn = true; dwPvp = !!pvp; const end = Date.now() + deathWait * 1000;
+    dw.innerHTML = '<h1 style="-webkit-text-fill-color:#ef4444">' + esc(title) + '</h1><div class="pn" style="line-height:1.8">' + info + '</div><div id="dwCount" style="font-size:44px;font-weight:800;color:#fbbf24"></div><div class="mu">Màn hình chờ hồi sinh. Khi hết giờ bạn có thể vào lại game hoặc đổi xe tăng.</div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button id="dwA" disabled>▶ VÀO LẠI GAME</button><button id="dwB" disabled>🔧 ĐỔI XE TĂNG</button></div>';
+    const tick = () => {
+      const c = $q('dwCount'); if (!c) return clearInterval(dwTimer);
+      if (dwPvp && (!running || !player)) return dwHide();
+      const s = Math.ceil((end - Date.now()) / 1000);
+      if (s > 0) c.textContent = s + ' giây'; else { clearInterval(dwTimer); c.textContent = 'Sẵn sàng!'; $q('dwA').disabled = false; $q('dwB').disabled = false }
+    };
+    clearInterval(dwTimer); dwTimer = setInterval(tick, 200);
+    $q('dwA').onclick = () => { dwHide(); again() };
+    $q('dwB').onclick = () => { dwHide(); if (typeof running !== 'undefined' && running) exitGame(); else toMenu() };
+    dw.classList.remove('hidden'); tick();
+  }
+  const _begin = begin; begin = function (m) { lastBegin = m; dwHide(); return _begin.apply(this, arguments) };
+  const _gameOver = gameOver; gameOver = function () {
+    const r = _gameOver.apply(this, arguments);
+    try { if (deathWait > 0 && !SIM && !WATCH) { $q('over').classList.add('hidden'); dwShow($q('overT').textContent, $q('overI').innerHTML, () => begin(lastBegin), false) } } catch (e) { }
+    return r;
+  };
+  const _respawn = respawn; respawn = function () {
+    if (deathWait > 0 && !dwOn && running && mode === 'pvp' && !SIM && !WATCH && player && player.hp <= 0) {
+      player.hp = 1; player.inv = 1e12;
+      dwShow('💀 BẠN ĐÃ BỊ HẠ GỤC', 'Bạn sẽ hồi sinh tại căn cứ của đội mình.', () => { try { _respawn() } catch (e) { } }, true);
+      return;
+    }
+    return _respawn.apply(this, arguments);
+  };
+  addEventListener('keydown', e => { if (dwOn && dwPvp && running && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) { e.stopImmediatePropagation(); e.preventDefault() } }, true);
+
+  /* ---- Lệnh dạng /kick /ban /tp ... trong bảng lệnh ---- */
+  let specPrev = {};
+  const asrv = async fn => { try { await fn() } catch (e) { log(e.message === 'LOCKED' ? '🔒 Hãy mở khóa bảng quản trị (nhập mật khẩu) trước' : 'Lỗi: ' + e.message) } };
+  const findAcc = async name => { const r = await A('/api/admin/users', { q: name, limit: 10 }), us = r.users || [], q = String(name).toLowerCase(); return us.find(u => String(u.username).toLowerCase() === q) || us[0] || null };
+  const findEnt = q => {
+    q = String(q || '').toLowerCase(); if (!q) return null; if (q === 'me' || q === 'tôi') return player;
+    let best = null; enemies.forEach(e => { if (e.dead) return; const n = String(e.label || e.nm || e.name || '').toLowerCase(); if (!n) return; if (n === q) best = e; else if (!best && n.includes(q)) best = e }); return best;
+  };
+  function slash(c, a) {
+    const name = a.join(' ');
+    switch (c) {
+      case 'kick': if (!name) return log('Dùng: /kick [tên]'); return asrv(async () => { const u = await findAcc(name); if (!u) return log('Không thấy tài khoản ' + name); await A('/api/admin/cmd', { aid: u.id, cmd: 'kick', ms: 8000 }); log('👢 Đã đuổi ' + u.username) });
+      case 'ban': case 'unban': {
+        if (!a[0]) return log('Dùng: /ban [tên] [giờ, 0=vĩnh viễn] [lý do] | /unban [tên]'); const on = c === 'ban', hasH = a[1] !== undefined && !isNaN(+a[1]);
+        return asrv(async () => { const u = await findAcc(a[0]); if (!u) return log('Không thấy tài khoản ' + a[0]); await A('/api/admin/ban', { id: u.id, ban: on, hours: hasH ? +a[1] : 0, reason: a.slice(hasH ? 2 : 1).join(' '), ip: false }); log(on ? '⛔ Đã khóa ' + u.username + (hasH && +a[1] > 0 ? ' ' + a[1] + ' giờ' : ' vĩnh viễn') : '✅ Đã mở khóa ' + u.username) });
+      }
+      case 'mute': case 'unmute': {
+        if (!a[0]) return log('Dùng: /mute [tên] [phút, 0=vô hạn] | /unmute [tên]'); const on = c === 'mute';
+        return asrv(async () => { const u = await findAcc(a[0]); if (!u) return log('Không thấy tài khoản ' + a[0]); await A('/api/admin/mute', { id: u.id, mute: on, minutes: on ? (+a[1] || 0) : 0 }); log(on ? '🔇 Đã cấm chat ' + u.username : '🔊 Đã bỏ cấm chat ' + u.username) });
+      }
+      case 'freeze': {
+        if (!a[0]) return log('Dùng: /freeze [tên] [giây] (không có tên: bật/tắt đóng băng quái)'); const s = Math.max(1, Math.min(60, +a[1] || 8));
+        return asrv(async () => { const u = await findAcc(a[0]); if (!u) return log('Không thấy tài khoản ' + a[0]); await A('/api/admin/cmd', { aid: u.id, cmd: 'freeze', ms: s * 1000 }); log('🧊 Đã đóng băng ' + u.username + ' ' + s + ' giây') });
+      }
+      case 'slap': case 'kill': {
+        if (!live()) return log('Cần đang trong trận'); const e = findEnt(name || (c === 'kill' ? 'me' : ''));
+        if (!e) return log(name ? 'Không thấy "' + name + '" trong trận' : 'Dùng: /slap [tên]');
+        if (e === player) { player.inv = 0; hurtPlayer(c === 'kill' ? 1e9 : player.maxHp * .2, null); return log(c === 'kill' ? '☠️ Bạn tự hạ gục' : 'Bạn bị tát') }
+        if (e.net) return log('Người chơi online: cần server hỗ trợ lệnh này');
+        hurtEnemy(e, c === 'kill' ? 1e12 : Math.max(1, e.maxHp * .2), player); return log((c === 'kill' ? '☠️ Đã hạ ' : '👋 Đã tát ') + (e.label || e.nm));
+      }
+      case 'spec': {
+        if (!live()) return log('Cần đang trong trận');
+        if (!name || name === 'off') { if (ADM.spec) { ADM.spec = null; Object.assign(ADM, specPrev); refreshBox(); return log('Đã thoát chế độ theo dõi') } return log('Dùng: /spec [tên] | /spec off') }
+        const e = findEnt(name); if (!e || e === player) return log('Không thấy "' + name + '" trong trận');
+        if (!ADM.spec) specPrev = { noclip: ADM.noclip, god: ADM.god, invisible: ADM.invisible };
+        ADM.spec = e; ADM.noclip = ADM.god = ADM.invisible = true; refreshBox(); return log('👁️ Đang theo dõi ' + (e.label || e.nm) + ' (tàng hình + bất tử). /spec off để thoát');
+      }
+      case 'heal': {
+        if (!live()) return log('Cần đang trong trận'); if (!name) { U.heal(); return log('Đã hồi đầy máu') }
+        const e = findEnt(name); if (!e) return log('Không thấy "' + name + '" trong trận'); if (e.net) return log('Người chơi online: cần server hỗ trợ lệnh này');
+        e.hp = e.maxHp; return log('💚 Đã hồi máu cho ' + (e.label || e.nm || 'bản thân'));
+      }
+      case 'give': case 'equip': {
+        if (!a[0]) return log('Dùng: /give [mã xe hoặc súng drone] | /give [tên] [mã]');
+        if (a.length >= 2) { const k = a[1], isT = !!S[k]; if (!isT && !DGUN[k]) return log('Không có mã ' + k); return asrv(async () => { const u = await findAcc(a[0]); if (!u) return log('Không thấy tài khoản ' + a[0]); await A('/api/admin/edit', { id: u.id, patch: isT ? { addTanks: [k] } : { addGuns: [k] } }); log('🎁 Đã cấp ' + k + ' cho ' + u.username) }) }
+        const k = a[0];
+        if (S[k]) { if (!D.owned.includes(k)) D.owned.push(k); save(); return log('Đã cấp xe ' + k) }
+        if (DGUN[k]) { D.dguns = D.dguns || []; if (!D.dguns.includes(k)) D.dguns.push(k); save(); return log('Đã cấp súng drone ' + DGUN[k]) }
+        return log('Không có mã ' + k + '. Súng drone: ' + Object.keys(DGUN).join(', '));
+      }
+      case 'tp': case 'goto': case 'bring': {
+        if (!live()) return log('Cần đang trong trận');
+        if (c === 'tp' && a.length >= 2 && !isNaN(+a[0]) && !isNaN(+a[1])) { [player.x, player.y] = clampXY(+a[0], +a[1]); return log('Dịch chuyển tới ' + Math.round(player.x) + ',' + Math.round(player.y)) }
+        if (!a.length) return log('Dùng: /tp X Y | /tp [tên] | /tp [A] [B] | /goto [tên] | /bring [tên]');
+        let from = 'me', to = 'me'; if (c === 'bring') from = name; else if (c === 'goto' || a.length === 1) to = name; else { from = a[0]; to = a[1] }
+        const dst = findEnt(to); if (!dst) return log('Không thấy "' + to + '" trong trận');
+        const [x, y] = clampXY(dst === player ? player.x : dst.x + 80, dst.y);
+        const src = findEnt(from); if (src === player) { [player.x, player.y] = [x, y]; return log('Đã tới ' + to) }
+        if (src && !src.net) { src.x = x; src.y = y; return log('Đã dịch chuyển ' + from + ' tới ' + to) }
+        return asrv(async () => { const u = await findAcc(from); if (!u) return log('Không thấy tài khoản ' + from); await A('/api/admin/cmd', { aid: u.id, cmd: 'tp', x, y, ms: 8000 }); log('Đã kéo ' + u.username + ' tới ' + to) });
+      }
+      case 'map': case 'changemap': {
+        if (!live()) return log('Cần đang trong trận'); if (T4 || mode === 'pvp') return log('Chỉ đổi cỡ bản đồ được ở chế độ PvE thường');
+        const v = String(a[0] || '').toLowerCase(), sz = (v === 'big' || v === 'lon' || v === 'lớn') ? BIGMAP : (v === 'small' || v === 'nho' || v === 'nhỏ') ? 4000 : +v;
+        if (!(sz >= 2000 && sz <= 16000)) return log('Dùng: /map small | big | cỡ (2000-16000). Hiện tại: ' + MAP);
+        if (sz === MAP) return log('Đang ở bản đồ cỡ ' + MAP);
+        setMap(sz); enemies.length = 0; shapes.length = 0; proj.length = 0; traps.length = 0; minions.length = 0; randSpawn(); return log('🗺️ Đã đổi bản đồ sang cỡ ' + sz);
+      }
+      case 'restart': case 'rr': begin(lastBegin); return log('🔄 Đã khởi động lại ván');
+      case 'gravity': return log('Game nhìn từ trên xuống nên không có trọng lực. Dùng /speed [số] để đổi tốc độ di chuyển.');
+      case 'bots': {
+        if (!live()) return log('Cần đang trong trận'); if (T4) return log('Chế độ đội: không chỉnh bot bằng lệnh này');
+        const list = enemies.filter(e => !e.dead && !e.net), cur = list.length; if (isNaN(+a[0])) return log('Dùng: /bots [số lượng]. Hiện có ' + cur);
+        const n = Math.max(0, Math.min(200, Math.floor(+a[0])));
+        if (n > cur) { if (mode === 'pvp' && typeof mkBot === 'function') { for (let i = cur; i < n; i++) mkBot(i % 2 ? 'r' : 'b') } else summon(n - cur, false) } else for (let i = 0; i < cur - n; i++) list[list.length - 1 - i].dead = true;
+        const cap = Math.round(16 * (MAP > 4000 ? 1.75 : 1)); return log('🤖 Bot: ' + cur + ' → ' + n + (mode === 'pve' && n < cap ? ' (PvE tự bổ sung quái tới ' + cap + '; dùng freeze nếu muốn đứng yên)' : ''));
+      }
+    }
+  }
+
   const U = window.TWE_ADM_UI = {
     tog(k) { ADM[k] = !ADM[k]; if (k === 'noclip') log('Xuyên tường: ' + (ADM.noclip ? 'BẬT' : 'TẮT')); refreshBox() },
     all() { const on = !(ADM.god && ADM.infGems && ADM.infExp); ADM.god = ADM.infGems = ADM.infExp = on; if (on) { ADM.speed = Math.max(ADM.speed, 2) } refreshBox(); log(on ? '♾️ Đã bật VÔ HẠN: bất tử, gems, EXP' : 'Đã tắt vô hạn') },
@@ -260,6 +391,7 @@
     spawn(boss) { log('Đã triệu hồi ' + summon(Math.max(1, +val('adN') || 1), boss) + (boss ? ' boss' : ' quái')) },
     kill() { log('Đã quét sạch ' + killAll() + ' mục tiêu') },
     possess() { possessEnemy(selEnemy()) },
+    darkR() { ADM.darkR = Math.max(60, +val('adDr') || 260); log('Tầm nhìn bóng tối = ' + ADM.darkR) },
     brush(m) { const s = Math.round((+val('adBs') || ADM.brushSize) / 40) * 40; ADM.brushSize = Math.max(40, s); ADM.brush = ADM.brush === m ? '' : m; log(ADM.brush ? (ADM.brush === 'add' ? '🧱 Chế độ VẼ tường: bấm lên bản đồ' : '🧹 Chế độ XÓA tường: bấm vào tường') : 'Đã tắt chế độ chỉnh bản đồ'); refreshBox() },
     undo() { undoWall() }, resetMap() { resetWalls() },
     addGems() { const n = +val('adGm') || 0; D.gems = Math.max(0, (D.gems || 0) + n); save(); log('Gems = ' + D.gems) },
@@ -268,21 +400,25 @@
     takeT() { const k = val('adT'); if (!k) return; D.owned = D.owned.filter(x => x !== k); save(); log('Đã thu hồi xe ' + k) },
     inv() { log('🎒 Gems: ' + D.gems + ' | Xe (' + (D.owned || []).length + '): ' + (D.owned || []).join(', ') + ((D.dguns || []).length ? ' | Súng: ' + D.dguns.join(', ') : '')) },
     con(inp) {
-      const line = inp.value.trim(); inp.value = ''; if (!line) return; log('> ' + line);
+      let line = inp.value.trim(); inp.value = ''; if (!line) return; log('> ' + line); line = line.replace(/^\/+/, ''); if (!line) return;
       const [c, ...a] = line.split(/\s+/), n = +a[0];
       try {
         switch (c.toLowerCase()) {
-          case 'help': log('god noclip invis hitbox night rain snow storm freeze inf | possess | brush add|del [cỡ] | undo | resetmap | inv | take KEY | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | tp X Y | spawn N | boss | killall | tank KEY | give KEY | js CODE'); break;
-          case 'god': U.tog('god'); break; case 'noclip': case 'fly': U.tog('noclip'); break; case 'invis': U.tog('invisible'); break; case 'hitbox': U.tog('hitbox'); break; case 'night': U.tog('night'); break; case 'rain': U.tog('rain'); break; case 'snow': U.tog('snow'); break; case 'storm': U.tog('storm'); break; case 'freeze': U.tog('freezeAll'); break; case 'inf': U.all(); break;
+          case 'help': log('Công cụ: god noclip invis hitbox night rain snow storm freeze inf dark [R|off] ammo | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | spawn N | boss | killall | tank KEY | possess | brush add|del [cỡ] | undo | resetmap | inv | take KEY | deathwait [giây] | js CODE'); log('Lệnh /: /kick /ban /unban /mute /unmute /freeze [tên] · /slap /kill /spec /heal [tên] · /tp X Y · /tp [A] [B] · /goto /bring [tên] · /give [tên] KEY · /map small|big · /restart (/rr) · /bots N'); break;
+          case 'god': U.tog('god'); break; case 'noclip': case 'fly': U.tog('noclip'); break; case 'invis': U.tog('invisible'); break; case 'hitbox': U.tog('hitbox'); break; case 'night': U.tog('night'); break; case 'rain': U.tog('rain'); break; case 'snow': U.tog('snow'); break; case 'storm': U.tog('storm'); break; case 'freeze': if (a.length) slash('freeze', a); else { U.tog('freezeAll'); log('Đóng băng quái: ' + (ADM.freezeAll ? 'BẬT' : 'TẮT')) } break;
+          case 'dark': if (a[0] === 'off') ADM.dark = false; else { if (+a[0] >= 60) ADM.darkR = Math.round(+a[0]); ADM.dark = a[0] === undefined ? !ADM.dark : true } log('Bóng tối: ' + (ADM.dark ? 'BẬT (tầm nhìn ' + ADM.darkR + ')' : 'TẮT')); break;
+          case 'ammo': case 'infammo': U.tog('infAmmo'); log('Vô hạn đạn: ' + (ADM.infAmmo ? 'BẬT' : 'TẮT')); break;
+          case 'deathwait': if (a[0] !== undefined && !isNaN(n)) deathWait = Math.max(0, Math.min(60, Math.round(n))); log('Thời gian chờ khi chết: ' + (deathWait > 0 ? deathWait + ' giây' : 'TẮT')); break;
+          case 'kick': case 'ban': case 'unban': case 'mute': case 'unmute': case 'slap': case 'kill': case 'spec': case 'heal': case 'equip': case 'goto': case 'bring': case 'map': case 'changemap': case 'restart': case 'rr': case 'gravity': case 'bots': slash(c.toLowerCase(), a); break; case 'inf': U.all(); break;
           case 'speed': ADM.speed = n || 1; break; case 'dmg': ADM.dmg = n || 1; break; case 'rate': ADM.rate = n || 1; break;
           case 'gems': D.gems = Math.max(0, n || 0); save(); log('Gems = ' + D.gems); break;
           case 'exp': if (live()) player.addExp(n || 0); else grantExp(n || 0); break;
           case 'level': if (live()) player.addLevels(n || 1); break;
           case 'hp': U.heal(); break; case 'max': U.maxst(); break;
-          case 'tp': if (live()) { [player.x, player.y] = clampXY(+a[0], +a[1]) } break;
+          case 'tp': slash('tp', a); break;
           case 'spawn': log('Đã triệu hồi ' + summon(n || 1, false)); break; case 'boss': summon(1, true); break; case 'killall': log('Đã quét ' + killAll()); break;
           case 'tank': if (S[a[0]] && live()) { player.setT(a[0]); log('Đã đổi xe ' + a[0]) } else log('Không có xe ' + a[0]); break;
-          case 'give': if (S[a[0]]) { if (!D.owned.includes(a[0])) D.owned.push(a[0]); save(); log('Đã cấp ' + a[0]) } break;
+          case 'give': slash('give', a); break;
           case 'possess': if (live()) possessEnemy(nearestEnemy()); break;
           case 'brush': ADM.brush = (a[0] === 'add' || a[0] === 'del') ? a[0] : ''; if (+a[1] > 0) ADM.brushSize = Math.max(40, Math.round(+a[1] / 40) * 40); log('Brush: ' + (ADM.brush || 'tắt') + ' ' + ADM.brushSize); break;
           case 'undo': undoWall(); break; case 'resetmap': resetWalls(); break;
@@ -326,6 +462,8 @@
     if (ADM.infGems && D.gems < 1e11) D.gems = 1e12;
     if (ADM.infExp && frame % 90 === 0) { try { player.addExp(1e8) } catch (e) { } }
     if (ADM.god) player.hp = player.maxHp;
+    if (ADM.infAmmo) player.cd = 0;
+    if (ADM.spec) { if (ADM.spec.dead) { ADM.spec = null; Object.assign(ADM, specPrev); log('Mục tiêu đã chết — thoát theo dõi') } else { player.x = ADM.spec.x; player.y = ADM.spec.y } }
     if (ADM.speed !== 1) player.speed = (player.base.speed + player.st.mv * SF.mv) * ADM.speed;
     if (ADM.dmg !== 1) player.dmg = (player.base.dmg + player.st.bd * SF.bd) * ADM.dmg;
     if (ADM.rate !== 1) player.rt = Math.max(2, player.base.reload * Math.pow(SF.rl, player.st.rl)) / ADM.rate;
