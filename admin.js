@@ -3,14 +3,15 @@
    A) Bảng quản trị (cần NHẬP LẠI MẬT KHẨU): tra cứu/chỉnh sửa mọi tài khoản, đặt lại mật khẩu, khóa/cấm chat, mã quà,
       đăng/gỡ xe lên cửa hàng, thông báo toàn máy chủ, lệnh lên người chơi online, sao lưu/khôi phục, tải danh sách .docx.
    B) Công cụ trong game (phím 1): bay/xuyên tường, bất tử, vô hạn gems/EXP, chỉnh chỉ số, dịch chuyển, tàng hình, triệu hồi,
-      quét sạch, khung va chạm, ngày/đêm + mưa, bảng lệnh.
+      quét sạch, khung va chạm, ngày/đêm + mưa/tuyết/bão, đóng băng quái, chiếm hữu, vẽ/xóa tường (map editor),
+      tạo vật phẩm/soi túi đồ, bảng lệnh.
    Quyền thật sự được máy chủ kiểm tra; phần công cụ trong game chỉ chạy ở máy của chính admin. */
 (function () {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const TIERS = ['C', 'B', 'A', 'S', 'SS', 'SSS', 'SSSS', 'SSSSS', 'ULTRA', 'HYPER', 'MYTHIC'];
   const AC = () => window.TWE_ACCOUNT, isAdm = () => !!(AC() && AC().isAdmin);
   const $q = id => document.getElementById(id);
-  const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false };
+  const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120 };
   let admTok = '', admExp = 0, tab = 'users', msg = '', users = [], total = 0, sel = null, codes = [], shop = [], backups = [], lastQ = '';
 
   /* ================= A) BẢNG QUẢN TRỊ ================= */
@@ -168,12 +169,14 @@
     const tg = (k, l) => '<button class="' + (ADM[k] ? 'on' : '') + '" onclick="TWE_ADM_UI.tog(\'' + k + '\')">' + l + '</button>';
     const near = (typeof enemies !== 'undefined' ? enemies : []).filter(e => !e.dead && (e.label || e.nm)).slice(0, 40);
     return '<div style="display:flex;justify-content:space-between"><b style="color:#f59e0b">🎮 CÔNG CỤ ADMIN</b><a href="#" onclick="TWE_ADMIN.tools(false);return false" style="color:#f87171">✕ (1)</a></div>' +
-      '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
+      '<div>' + tg('noclip', '🕊️ Bay/xuyên tường') + tg('god', '🛡️ Bất tử') + tg('invisible', '👻 Tàng hình') + tg('hitbox', '🔲 Khung va chạm') + tg('infGems', '💎 Vô hạn gems') + tg('infExp', '⭐ Vô hạn EXP') + tg('night', '🌙 Đêm') + tg('rain', '🌧️ Mưa') + tg('snow', '❄️ Tuyết') + tg('storm', '⛈️ Bão') + tg('freezeAll', '🧊 Đóng băng quái') + '<button style="background:#b45309" onclick="TWE_ADM_UI.all()">♾️ VÔ HẠN TẤT CẢ</button></div>' +
       '<hr style="border-color:#334155"><b>⚙️ Chỉ số</b><div>Tốc độ ×<input id="adS" type="number" step="0.5" value="' + ADM.speed + '"> Sát thương ×<input id="adD" type="number" step="0.5" value="' + ADM.dmg + '"> Tốc bắn ×<input id="adR" type="number" step="0.5" value="' + ADM.rate + '"> <button onclick="TWE_ADM_UI.stats()">ÁP DỤNG</button></div>' +
       '<div><button onclick="TWE_ADM_UI.lv(10)">+10 cấp</button><button onclick="TWE_ADM_UI.lv(100)">+100 cấp</button><button onclick="TWE_ADM_UI.lv(1000)">+1000 cấp</button><button onclick="TWE_ADM_UI.maxst()">Tối đa chỉ số</button><button onclick="TWE_ADM_UI.heal()">Hồi máu</button></div>' +
       '<hr style="border-color:#334155"><b>📍 Dịch chuyển</b><div>X<input id="adX" type="number" value="' + (live() ? Math.round(player.x) : 0) + '"> Y<input id="adY" type="number" value="' + (live() ? Math.round(player.y) : 0) + '"> <button onclick="TWE_ADM_UI.tp()">ĐI</button><button onclick="TWE_ADM_UI.center()">Giữa bản đồ</button></div>' +
-      '<div><select id="adE" style="max-width:190px"><option value="">— tới người/quái —</option>' + near.map((e, i) => '<option value="' + i + '">' + esc(e.label || e.nm) + '</option>').join('') + '</select><button onclick="TWE_ADM_UI.tpe()">TỚI</button></div>' +
+      '<div><select id="adE" style="max-width:190px"><option value="">— tới người/quái —</option>' + near.map((e, i) => '<option value="' + i + '">' + esc(e.label || e.nm) + '</option>').join('') + '</select><button onclick="TWE_ADM_UI.tpe()">TỚI</button><button onclick="TWE_ADM_UI.possess()">👁️ CHIẾM HỮU</button></div>' +
       '<hr style="border-color:#334155"><b>👹 Triệu hồi / dọn</b><div><input id="adN" type="number" value="5" style="width:50px"> <button onclick="TWE_ADM_UI.spawn(false)">Quái</button><button onclick="TWE_ADM_UI.spawn(true)">BOSS</button><button class="red" onclick="TWE_ADM_UI.kill()">☢️ QUÉT SẠCH</button></div>' +
+      '<hr style="border-color:#334155"><b>🎁 Vật phẩm / 🎒 Túi đồ</b><div>💎<input id="adGm" type="number" value="1000000" style="width:110px"> <button onclick="TWE_ADM_UI.addGems()">+ Gems</button><button onclick="TWE_ADM_UI.inv()">🎒 Soi túi</button></div><div><input id="adT" list="adTL" placeholder="mã xe" style="width:120px"><datalist id="adTL">' + toolTankOpts() + '</datalist> <button onclick="TWE_ADM_UI.giveT()">Cấp xe</button><button onclick="TWE_ADM_UI.useT()">Dùng xe</button><button class="red" onclick="TWE_ADM_UI.takeT()">Thu hồi</button></div>' +
+      '<hr style="border-color:#334155"><b>🗺️ Chỉnh bản đồ</b><div><button class="' + (ADM.brush === 'add' ? 'on' : '') + '" onclick="TWE_ADM_UI.brush(\'add\')">🧱 Vẽ tường</button><button class="' + (ADM.brush === 'del' ? 'on' : '') + '" onclick="TWE_ADM_UI.brush(\'del\')">🧹 Xóa tường</button> cỡ<input id="adBs" type="number" step="40" value="' + ADM.brushSize + '" style="width:60px"><button onclick="TWE_ADM_UI.undo()">↩️</button><button onclick="TWE_ADM_UI.resetMap()">♻️ Khôi phục</button></div><div class="mu">Bật chế độ rồi bấm lên bản đồ trong trận (chỉ đổi trên máy bạn).</div>' +
       '<hr style="border-color:#334155"><b>⌨️ Bảng lệnh</b><input id="admCon" placeholder="gõ lệnh, vd: help" onkeydown="event.stopPropagation();if(event.key===\'Enter\')TWE_ADM_UI.con(this)"><div id="admLog">' + esc(logBuf) + '</div>';
   }
   function toolsToggle(show) {
@@ -195,6 +198,55 @@
     return k;
   }
   function killAll() { let n = 0; enemies.forEach(e => { if (!e.net && !e.dead) { e.dead = true; n++ } }); proj = proj.filter(p => p.own === player); traps = traps.filter(t => t.own === player); return n }
+  let _tankOpts = '';
+  const toolTankOpts = () => _tankOpts || (_tankOpts = typeof S !== 'undefined' ? Object.keys(S).slice(0, 1500).map(k => '<option value="' + esc(k) + '">' + esc((S[k] && S[k].name) || '') + '</option>').join('') : '');
+  const selEnemy = () => { const i = val('adE'); if (i === '') return null; return enemies.filter(e => !e.dead && (e.label || e.nm)).slice(0, 40)[+i] || null };
+  const nearestEnemy = () => { let b = null, bd = 1e9; enemies.forEach(e => { if (e.dead) return; const d = Math.hypot(e.x - player.x, e.y - player.y); if (d < bd) { bd = d; b = e } }); return b };
+  function possessEnemy(e) {
+    if (!live()) return log('Cần đang trong trận');
+    if (!e) return log('Chưa chọn mục tiêu');
+    const key = Object.keys(S).find(k => S[k] === e.sp);
+    if (!key || typeof player.setT !== 'function') return log('Không chiếm hữu được mục tiêu này');
+    try {
+      player.setT(key); const d = (e.level || 0) - player.level; if (d > 0) player.addLevels(d);
+      player.hp = player.maxHp; [player.x, player.y] = clampXY(e.x, e.y); e.dead = true; boom(e.x, e.y);
+      log('👁️ Đã chiếm hữu ' + (e.label || e.nm) + ' (Lv ' + e.level + ')');
+    } catch (x) { log('Lỗi: ' + x.message) }
+  }
+
+  /* ---- Map editor: vẽ / xóa tường ngay trong trận ---- */
+  let origObs = null, origMAP = 0, bscr = null; const wallEdits = [];
+  const keepOrig = () => { if (!origObs || origMAP !== MAP) { origObs = OBS.map(q => q.slice()); origMAP = MAP; wallEdits.length = 0 } };
+  const navReset = () => { try { NAV = null; NST = 0 } catch (e) { } };
+  const zm = () => (typeof ZM !== 'undefined' && ZM) || 1;
+  function wallAt(wx, wy, del) {
+    if (!live()) return; keepOrig();
+    if (del) {
+      for (let i = OBS.length - 1; i >= 0; i--) { const q = OBS[i]; if (wx >= q[0] && wx <= q[2] && wy >= q[1] && wy <= q[3]) { wallEdits.push({ t: 'del', i, q }); OBS.splice(i, 1); navReset(); return log('🧹 Đã xóa 1 tường') } }
+      return log('Không có tường ở đó');
+    }
+    const s = ADM.brushSize, gx = Math.max(0, Math.min(MAP - s, Math.floor(wx / 40) * 40)), gy = Math.max(0, Math.min(MAP - s, Math.floor(wy / 40) * 40)), q = [gx, gy, gx + s, gy + s];
+    const cx = Math.max(q[0], Math.min(q[2], player.x)), cy = Math.max(q[1], Math.min(q[3], player.y));
+    if (!ADM.noclip && (player.x - cx) ** 2 + (player.y - cy) ** 2 < 3600) return log('Quá gần xe của bạn (bật xuyên tường để đặt)');
+    OBS.push(q); wallEdits.push({ t: 'add', q }); navReset(); log('🧱 Đã đặt tường ' + s + '×' + s);
+  }
+  function undoWall() {
+    const e = wallEdits.pop(); if (!e) return log('Không còn gì để hoàn tác');
+    if (e.t === 'add') { const i = OBS.lastIndexOf(e.q); if (i >= 0) OBS.splice(i, 1) } else OBS.splice(Math.min(e.i, OBS.length), 0, e.q);
+    navReset(); log('↩️ Đã hoàn tác');
+  }
+  function resetWalls() {
+    if (!origObs || origMAP !== MAP) return log('Chưa chỉnh bản đồ');
+    OBS.length = 0; origObs.forEach(q => OBS.push(q.slice())); wallEdits.length = 0; navReset(); log('♻️ Đã khôi phục bản đồ gốc');
+  }
+  addEventListener('mousemove', e => { if (ADM.brush && e.target === cv) bscr = [e.clientX * zm(), e.clientY * zm()] }, true);
+  addEventListener('mousedown', e => {
+    if (!ADM.brush || !isAdm() || e.target !== cv || !live()) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    wallAt(e.clientX * zm() + camX, e.clientY * zm() + camY, ADM.brush === 'del');
+  }, true);
+  const _eUpd = Enemy.prototype.update; Enemy.prototype.update = function () { if (isAdm() && ADM.freezeAll) return; return _eUpd.apply(this, arguments) };
+
   const U = window.TWE_ADM_UI = {
     tog(k) { ADM[k] = !ADM[k]; if (k === 'noclip') log('Xuyên tường: ' + (ADM.noclip ? 'BẬT' : 'TẮT')); refreshBox() },
     all() { const on = !(ADM.god && ADM.infGems && ADM.infExp); ADM.god = ADM.infGems = ADM.infExp = on; if (on) { ADM.speed = Math.max(ADM.speed, 2) } refreshBox(); log(on ? '♾️ Đã bật VÔ HẠN: bất tử, gems, EXP' : 'Đã tắt vô hạn') },
@@ -207,13 +259,21 @@
     tpe() { const i = val('adE'); if (i === '' || !live()) return; const e = enemies.filter(e => !e.dead && (e.label || e.nm)).slice(0, 40)[+i]; if (e) { [player.x, player.y] = clampXY(e.x + 80, e.y); log('Tới ' + (e.label || e.nm)) } },
     spawn(boss) { log('Đã triệu hồi ' + summon(Math.max(1, +val('adN') || 1), boss) + (boss ? ' boss' : ' quái')) },
     kill() { log('Đã quét sạch ' + killAll() + ' mục tiêu') },
+    possess() { possessEnemy(selEnemy()) },
+    brush(m) { const s = Math.round((+val('adBs') || ADM.brushSize) / 40) * 40; ADM.brushSize = Math.max(40, s); ADM.brush = ADM.brush === m ? '' : m; log(ADM.brush ? (ADM.brush === 'add' ? '🧱 Chế độ VẼ tường: bấm lên bản đồ' : '🧹 Chế độ XÓA tường: bấm vào tường') : 'Đã tắt chế độ chỉnh bản đồ'); refreshBox() },
+    undo() { undoWall() }, resetMap() { resetWalls() },
+    addGems() { const n = +val('adGm') || 0; D.gems = Math.max(0, (D.gems || 0) + n); save(); log('Gems = ' + D.gems) },
+    giveT() { const k = val('adT'); if (!S[k]) return log('Không có xe ' + k); if (!D.owned.includes(k)) D.owned.push(k); save(); log('Đã cấp xe ' + k) },
+    useT() { const k = val('adT'); if (!S[k]) return log('Không có xe ' + k); if (live()) { player.setT(k); log('Đã đổi sang xe ' + k) } else log('Cần đang trong trận') },
+    takeT() { const k = val('adT'); if (!k) return; D.owned = D.owned.filter(x => x !== k); save(); log('Đã thu hồi xe ' + k) },
+    inv() { log('🎒 Gems: ' + D.gems + ' | Xe (' + (D.owned || []).length + '): ' + (D.owned || []).join(', ') + ((D.dguns || []).length ? ' | Súng: ' + D.dguns.join(', ') : '')) },
     con(inp) {
       const line = inp.value.trim(); inp.value = ''; if (!line) return; log('> ' + line);
       const [c, ...a] = line.split(/\s+/), n = +a[0];
       try {
         switch (c.toLowerCase()) {
-          case 'help': log('god noclip invis hitbox night rain inf | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | tp X Y | spawn N | boss | killall | tank KEY | give KEY | js CODE'); break;
-          case 'god': U.tog('god'); break; case 'noclip': case 'fly': U.tog('noclip'); break; case 'invis': U.tog('invisible'); break; case 'hitbox': U.tog('hitbox'); break; case 'night': U.tog('night'); break; case 'rain': U.tog('rain'); break; case 'inf': U.all(); break;
+          case 'help': log('god noclip invis hitbox night rain snow storm freeze inf | possess | brush add|del [cỡ] | undo | resetmap | inv | take KEY | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | tp X Y | spawn N | boss | killall | tank KEY | give KEY | js CODE'); break;
+          case 'god': U.tog('god'); break; case 'noclip': case 'fly': U.tog('noclip'); break; case 'invis': U.tog('invisible'); break; case 'hitbox': U.tog('hitbox'); break; case 'night': U.tog('night'); break; case 'rain': U.tog('rain'); break; case 'snow': U.tog('snow'); break; case 'storm': U.tog('storm'); break; case 'freeze': U.tog('freezeAll'); break; case 'inf': U.all(); break;
           case 'speed': ADM.speed = n || 1; break; case 'dmg': ADM.dmg = n || 1; break; case 'rate': ADM.rate = n || 1; break;
           case 'gems': D.gems = Math.max(0, n || 0); save(); log('Gems = ' + D.gems); break;
           case 'exp': if (live()) player.addExp(n || 0); else grantExp(n || 0); break;
@@ -223,6 +283,10 @@
           case 'spawn': log('Đã triệu hồi ' + summon(n || 1, false)); break; case 'boss': summon(1, true); break; case 'killall': log('Đã quét ' + killAll()); break;
           case 'tank': if (S[a[0]] && live()) { player.setT(a[0]); log('Đã đổi xe ' + a[0]) } else log('Không có xe ' + a[0]); break;
           case 'give': if (S[a[0]]) { if (!D.owned.includes(a[0])) D.owned.push(a[0]); save(); log('Đã cấp ' + a[0]) } break;
+          case 'possess': if (live()) possessEnemy(nearestEnemy()); break;
+          case 'brush': ADM.brush = (a[0] === 'add' || a[0] === 'del') ? a[0] : ''; if (+a[1] > 0) ADM.brushSize = Math.max(40, Math.round(+a[1] / 40) * 40); log('Brush: ' + (ADM.brush || 'tắt') + ' ' + ADM.brushSize); break;
+          case 'undo': undoWall(); break; case 'resetmap': resetWalls(); break;
+          case 'inv': U.inv(); break; case 'take': D.owned = D.owned.filter(x => x !== a[0]); save(); log('Đã thu hồi ' + a[0]); break;
           case 'js': { const r = new Function('return (' + line.slice(3) + ')')(); log(String(r)); break }
           default: log('Lệnh lạ. Gõ help.');
         }
@@ -235,6 +299,7 @@
   const on = k => isAdm() && ADM[k];
   const _pushOut = pushOut; pushOut = function (o, r) { if (on('noclip') && o === player) return; return _pushOut.apply(this, arguments) };
   const _hurt = hurtPlayer; hurtPlayer = function () { if (on('god')) return; return _hurt.apply(this, arguments) };
+  let flash = 0; const snow = Array.from({ length: 120 }, () => ({ x: Math.random(), y: Math.random(), v: .5 + Math.random() * 1.2, s: Math.random() * 6, r: 1 + Math.random() * 2.2 }));
   const rain = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), v: .6 + Math.random() * .8 }));
   const _dz = drawZones; drawZones = function () {
     _dz.apply(this, arguments); if (!isAdm() || typeof player === 'undefined' || !player) return;
@@ -242,9 +307,17 @@
       ctx.save(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#22d3ee'; ctx.beginPath(); ctx.arc(player.x - camX, player.y - camY, 24, 0, 7); ctx.stroke();
       ctx.strokeStyle = '#f87171'; enemies.forEach(e => { if (!e.dead && Math.abs(e.x - player.x) < 1200 && Math.abs(e.y - player.y) < 800) { ctx.beginPath(); ctx.arc(e.x - camX, e.y - camY, e.r || 24, 0, 7); ctx.stroke() } });
       ctx.strokeStyle = '#fbbf24'; let n = 0; for (const p of proj) { if (p.dead || ++n > 400) continue; ctx.beginPath(); ctx.arc(p.x - camX, p.y - camY, p.r || 6, 0, 7); ctx.stroke() }
-      ctx.strokeStyle = '#a78bfa'; for (const t of traps) { ctx.beginPath(); ctx.arc(t.x - camX, t.y - camY, t.r || 12, 0, 7); ctx.stroke() } ctx.restore();
+      ctx.strokeStyle = '#a78bfa'; for (const t of traps) { ctx.beginPath(); ctx.arc(t.x - camX, t.y - camY, t.r || 12, 0, 7); ctx.stroke() }
+      ctx.strokeStyle = '#34d399'; for (const q of OBS) { const X = q[0] - camX, Y = q[1] - camY; if (X > cv.width || Y > cv.height || X + (q[2] - q[0]) < 0 || Y + (q[3] - q[1]) < 0) continue; ctx.strokeRect(X, Y, q[2] - q[0], q[3] - q[1]) } ctx.restore();
     }
     if (ADM.night) { const x = player.x - camX, y = player.y - camY, g = ctx.createRadialGradient(x, y, 120, x, y, 720); g.addColorStop(0, 'rgba(2,6,23,0)'); g.addColorStop(1, 'rgba(2,6,23,.82)'); ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore() }
+    if (ADM.snow) { ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.85)'; snow.forEach(f => { f.y += f.v * .006; f.x += Math.sin(frame / 40 + f.s) * .0008; if (f.y > 1) { f.y = 0; f.x = Math.random() } if (f.x < 0) f.x += 1; if (f.x > 1) f.x -= 1; ctx.beginPath(); ctx.arc(f.x * cv.width, f.y * cv.height, f.r, 0, 7); ctx.fill() }); ctx.restore() }
+    if (ADM.storm) {
+      ctx.save(); ctx.fillStyle = 'rgba(2,6,23,.38)'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.strokeStyle = 'rgba(147,197,253,.7)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      rain.forEach(r => { r.y += r.v * .045; r.x -= .01 * r.v; if (r.y > 1) { r.y = 0; r.x = Math.random() * 1.3 } if (r.x < 0) r.x += 1; const X = r.x * cv.width, Y = r.y * cv.height; ctx.moveTo(X, Y); ctx.lineTo(X - 9, Y + 24) }); ctx.stroke();
+      if (flash <= 0 && Math.random() < .004) flash = 8; if (flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (.45 * flash / 8) + ')'; ctx.fillRect(0, 0, cv.width, cv.height); flash-- } ctx.restore();
+    }
+    if (ADM.brush && bscr && live()) { const s = ADM.brushSize, wx = bscr[0] + camX, wy = bscr[1] + camY, gx = Math.floor(wx / 40) * 40, gy = Math.floor(wy / 40) * 40; ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = ADM.brush === 'add' ? '#22c55e' : '#ef4444'; if (ADM.brush === 'add') ctx.strokeRect(gx - camX, gy - camY, s, s); else { ctx.beginPath(); ctx.arc(bscr[0], bscr[1], 14, 0, 7); ctx.stroke() } ctx.restore() }
     if (ADM.rain) { ctx.save(); ctx.strokeStyle = 'rgba(147,197,253,.55)'; ctx.lineWidth = 1; ctx.beginPath(); rain.forEach(r => { r.y += r.v * .02; r.x -= .004 * r.v; if (r.y > 1) { r.y = 0; r.x = Math.random() * 1.2 } if (r.x < 0) r.x += 1; const X = r.x * cv.width, Y = r.y * cv.height; ctx.moveTo(X, Y); ctx.lineTo(X - 5, Y + 16) }); ctx.stroke(); ctx.restore() }
   };
   function tick() {
