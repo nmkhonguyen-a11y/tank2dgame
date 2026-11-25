@@ -192,7 +192,7 @@
       case 'ghist': gchat = (m.list || []).slice(-40); renderG(); break;
       case 'gchat': gchat.push(m); if (gchat.length > 60) gchat.shift(); renderG(); break;
       case 'gerr': banner('⚠️ ' + m.m); break;
-      case 'announce': banner('📢 ' + (m.by ? m.by + ': ' : '') + m.m); break;
+      case 'announce': { const fx = window.TWE_FX && TWE_FX.handle ? TWE_FX.handle(m) : null; if (fx === null) banner('📢 ' + (m.by ? m.by + ': ' : '') + m.m); else if (fx) banner(fx); break }
       case 'forced': status = '⚠️ ' + m.m; banner('⚠️ ' + m.m); break;
       case 'adm': onAdm(m); break;
     }
@@ -831,6 +831,7 @@
     endgame() { send({ t: 'endgame' }) },
     chat(v) { v = String(v).trim(); if (v) send({ t: 'chat', m: v }) },
     copy() { try { navigator.clipboard.writeText(room.code); status = 'Đã sao chép mã ' + room.code } catch (e) { status = 'Mã phòng: ' + room.code } render() },
+    isHost() { return !!(ON && AUTH) },
     leave() { leave(true) },
     back() { view = room ? 'room' : 'home'; render() }
   };
