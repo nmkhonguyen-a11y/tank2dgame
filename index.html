@@ -2126,7 +2126,7 @@ addEventListener('keydown',e=>{
   addEventListener('touchstart', () => { usedTouch = true }, { capture: true, passive: true });
 
   const css = document.createElement('style');
-  css.textContent = '#tweTouch{display:none;--ts:clamp(92px,27vh,132px);--tb:clamp(44px,13vh,56px)}body.twe-touch #tweTouch{display:block}' +
+  css.textContent = '#tweTouch{display:none;--ts:clamp(92px,27vh,132px);--tb:clamp(38px,11vh,52px)}body.twe-touch #tweTouch{display:block}' +
     '.twc{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:12;display:flex;align-items:flex-end;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}' +
     '#twL{left:calc(env(safe-area-inset-left,0px) + 12px)}#twR{right:calc(env(safe-area-inset-right,0px) + 12px)}' +
     '.twst{position:relative;width:var(--ts);height:var(--ts);border-radius:50%;background:rgba(15,23,42,.45);border:2px solid rgba(148,163,184,.55);touch-action:none}' +
@@ -2143,7 +2143,7 @@ addEventListener('keydown',e=>{
   const root = mk('div', 'tweTouch', '', document.body), L = mk('div', 'twL', 'twc', root), R = mk('div', 'twR', 'twc', root);
   const sm = mk('div', 'twSm', 'twst', L); mk('i', '', '', sm);
   const ad = mk('div', 'twAd', '', L), bTool = mk('button', 'twTool', '', ad, '<b>🛠</b><span>Công cụ</span>'), bPan = mk('button', 'twPan', '', ad, '<b>👑</b><span>Quản trị</span>');
-  const bt = mk('div', 'twBt', '', R), bSpin = mk('button', 'twSpin', '', bt, '<b>🌀</b><span>Tự xoay</span>'), bAF = mk('button', 'twAF', '', bt, '<b>🔥</b><span>Tự bắn</span>'), bRot = mk('button', 'twRot', '', bt, '<b>↻</b><span>180°</span>');
+  const bt = mk('div', 'twBt', '', R), bSb = mk('button', 'twSb', '', bt, '<b>📊</b><span>Điểm</span>'), bTm = mk('button', 'twTm', '', bt, '<b>⚔</b><span>Đội</span>'), bSpin = mk('button', 'twSpin', '', bt, '<b>🌀</b><span>Tự xoay</span>'), bAF = mk('button', 'twAF', '', bt, '<b>🔥</b><span>Tự bắn</span>'), bRot = mk('button', 'twRot', '', bt, '<b>↻</b><span>180°</span>');
   const sa = mk('div', 'twSa', 'twst', R); mk('i', '', '', sa);
   const port = mk('div', 'twePort', '', document.body, '<b>📱↻</b><div>Hãy xoay ngang điện thoại để chơi</div>');
   root.addEventListener('contextmenu', e => e.preventDefault());
@@ -2175,6 +2175,10 @@ addEventListener('keydown',e=>{
 
   /* ---- nút ---- */
   const tap = (el, fn) => el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn() });
+  const key = (type, code) => { try { window.dispatchEvent(new KeyboardEvent(type, { code, key: code, bubbles: true, cancelable: true })) } catch (e) { } };
+  bSb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); key('keydown', 'Tab') });
+  ['pointerup', 'pointercancel'].forEach(n => bSb.addEventListener(n, () => key('keyup', 'Tab')));
+  tap(bTm, () => { key('keydown', 'KeyT'); key('keyup', 'KeyT') });
   tap(bRot, () => { aimAng += Math.PI; applyAim() });
   tap(bAF, () => { autoFire = !autoFire; text(player.x, player.y, autoFire ? 'AUTO-FIRE: BẬT' : 'AUTO-FIRE: TẮT', '#22c55e') });
   tap(bSpin, () => { autoSpin = !autoSpin; text(player.x, player.y, autoSpin ? 'AUTO-SPIN: BẬT' : 'AUTO-SPIN: TẮT', '#a855f7') });
@@ -2191,6 +2195,7 @@ addEventListener('keydown',e=>{
     } catch (e) { }
   }
   const _begin = begin; begin = function () { goLandscape(); return _begin.apply(this, arguments) };
+  let asked = false; addEventListener('touchend', () => { if (!asked && enabled()) { asked = true; goLandscape() } }, { capture: true, passive: true }); // lần chạm đầu tiên: bật toàn màn hình + khóa ngang (cần thao tác người dùng)
 
   /* ---- vòng cập nhật ---- */
   function tick() {
@@ -2204,6 +2209,7 @@ addEventListener('keydown',e=>{
     if (statsOpen && L.style.display !== 'none') sMove.release();
     L.style.display = statsOpen ? 'none' : '';
     ad.style.display = window.TWE_ACCOUNT && window.TWE_ACCOUNT.isAdmin ? 'flex' : 'none';
+    bTm.style.display = typeof T4 !== 'undefined' && T4 ? '' : 'none';
     bAF.classList.toggle('on', !!autoFire); bSpin.classList.toggle('on', !!autoSpin);
     if (mv.on || fireOn || sa.firstElementChild.style.transform) applyAim();
   }
