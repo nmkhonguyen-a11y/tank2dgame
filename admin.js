@@ -7,12 +7,14 @@
       tạo vật phẩm/soi túi đồ, bóng tối (chỉ thấy quanh mình; NPC cũng bị tối), vô hạn đạn, bảng lệnh có lệnh dạng /kick /ban /tp ...
    D) Giao diện điện thoại: nút nổi 🛠/👑 (kéo được), bảng công cụ co giãn, thanh vẽ tường cảm ứng.
    E) Lệnh gửi tới TẤT CẢ người chơi online qua server: /kick|/freeze|/bring|/mute|/unmute|/ban|/unban|/give|/gems|/exp|/level|/max all, /announce.
+   F) Hiệu ứng/lệnh cho TẤT CẢ người chơi đang kết nối máy chủ (qua kênh thông báo của server): /dark|night|rain|snow|storm|god|speed|dmg|rate|noclip|ammo|hitbox|npcfreeze|heal|kill|spawn|boss|killnpc all, /clearfx.
    C) Màn hình chờ 10 giây mỗi khi chết (vào lại game hoặc đổi xe tăng) — áp dụng cho mọi người chơi.
    Quyền thật sự được máy chủ kiểm tra; phần công cụ trong game chỉ chạy ở máy của chính admin. */
 (function () {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const TIERS = ['C', 'B', 'A', 'S', 'SS', 'SSS', 'SSSS', 'SSSSS', 'ULTRA', 'HYPER', 'MYTHIC'];
   const AC = () => window.TWE_ACCOUNT, isAdm = () => !!(AC() && AC().isAdmin);
+  let FXON = false, fxUntil = 0; const adx = () => isAdm() || FXON; // FXON: máy người chơi thường đang chịu hiệu ứng do admin bật cho tất cả
   const $q = id => document.getElementById(id);
   const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120, dark: false, darkNpc: true, darkR: 260, infAmmo: false, spec: null };
   let admTok = '', admExp = 0, tab = 'users', msg = '', users = [], total = 0, sel = null, codes = [], shop = [], backups = [], lastQ = '';
@@ -182,6 +184,7 @@
       '<hr style="border-color:#334155"><b>🎁 Vật phẩm / 🎒 Túi đồ</b><div>💎<input id="adGm" type="number" value="1000000" style="width:110px"> <button onclick="TWE_ADM_UI.addGems()">+ Gems</button><button onclick="TWE_ADM_UI.inv()">🎒 Soi túi</button></div><div><input id="adT" list="adTL" placeholder="mã xe" style="width:120px"><datalist id="adTL">' + toolTankOpts() + '</datalist> <button onclick="TWE_ADM_UI.giveT()">Cấp xe</button><button onclick="TWE_ADM_UI.useT()">Dùng xe</button><button class="red" onclick="TWE_ADM_UI.takeT()">Thu hồi</button></div>' +
       '<hr style="border-color:#334155"><b>🗺️ Chỉnh bản đồ</b><div><button class="' + (ADM.brush === 'add' ? 'on' : '') + '" onclick="TWE_ADM_UI.brush(\'add\')">🧱 Vẽ tường</button><button class="' + (ADM.brush === 'del' ? 'on' : '') + '" onclick="TWE_ADM_UI.brush(\'del\')">🧹 Xóa tường</button> cỡ<input id="adBs" type="number" step="40" value="' + ADM.brushSize + '" style="width:60px"><button onclick="TWE_ADM_UI.undo()">↩️</button><button onclick="TWE_ADM_UI.resetMap()">♻️ Khôi phục</button></div><div class="mu">Bật chế độ rồi bấm lên bản đồ trong trận (chỉ đổi trên máy bạn).</div>' +
       '<hr style="border-color:#334155"><b>📡 Tất cả người chơi online</b><div><button onclick="TWE_ADM_UI.all_(\'freeze\')">🧊 Đóng băng</button><button onclick="TWE_ADM_UI.all_(\'bring\')">🧲 Kéo về chỗ tôi</button><button class="red" onclick="TWE_ADM_UI.all_(\'kick\')">👢 Đuổi</button><button onclick="TWE_ADM_UI.all_(\'mute\')">🔇 Cấm chat</button><button onclick="TWE_ADM_UI.all_(\'unmute\')">🔊 Bỏ cấm chat</button></div><div><input id="adAn" maxlength="200" placeholder="Thông báo tới mọi người" style="width:60%"> <button onclick="TWE_ADM_UI.announce()">📢 GỬI</button></div><div><input id="adAk" list="adTL" placeholder="mã xe/súng" style="width:110px"> <button onclick="TWE_ADM_UI.all_(\'give\')">🎁 Tặng tất cả</button> <input id="adAg" type="number" value="100000" style="width:90px"> <button onclick="TWE_ADM_UI.all_(\'gems\')">💎 + Gems tất cả</button></div><div class="mu">Gửi qua server tới mọi tài khoản đang online (15 phút gần nhất, không gồm admin). Cần mở khóa bảng quản trị 1 lần. Gõ <b>force</b> cuối lệnh để gửi cho mọi tài khoản.</div>' +
+      '<hr style="border-color:#334155"><b>🌐 Hiệu ứng cho TẤT CẢ người chơi</b><div>⏱<input id="adFxS" type="number" value="0" style="width:60px" title="giây, 0 = đến khi tắt"> tầm<input id="adFxR" type="number" value="260" style="width:64px"> ×<input id="adFxN" type="number" value="2" step="0.5" style="width:56px"></div><div><button onclick="TWE_ADM_UI.fx(\'dark\')">🌑 Bóng tối</button><button onclick="TWE_ADM_UI.fx(\'night\')">🌙 Đêm</button><button onclick="TWE_ADM_UI.fx(\'rain\')">🌧️ Mưa</button><button onclick="TWE_ADM_UI.fx(\'snow\')">❄️ Tuyết</button><button onclick="TWE_ADM_UI.fx(\'storm\')">⛈️ Bão</button><button onclick="TWE_ADM_UI.fx(\'god\')">🛡️ Bất tử</button><button onclick="TWE_ADM_UI.fx(\'noclip\')">🕊️ Xuyên tường</button><button onclick="TWE_ADM_UI.fx(\'ammo\')">🔫 Vô hạn đạn</button><button onclick="TWE_ADM_UI.fx(\'speed\')">⚡ Tốc độ</button><button onclick="TWE_ADM_UI.fx(\'dmg\')">💥 Sát thương</button><button onclick="TWE_ADM_UI.fx(\'rate\')">🎯 Tốc bắn</button><button onclick="TWE_ADM_UI.fx(\'heal\')">💚 Hồi máu</button><button class="red" onclick="TWE_ADM_UI.fx(\'kill\')">☠️ Hạ gục</button><button onclick="TWE_ADM_UI.fx(\'npcfreeze\')">🧊 Quái đứng yên</button><button onclick="TWE_ADM_UI.fx(\'spawn\')">👾 Quái +×</button><button onclick="TWE_ADM_UI.fx(\'boss\')">👹 Boss</button><button class="red" onclick="TWE_ADM_UI.fx(\'killnpc\')">☢️ Xóa quái</button><button style="background:#b45309" onclick="TWE_ADM_UI.fxOff()">✖ Tắt hiệu ứng</button></div><div class="mu">Gửi qua server tới mọi người đang kết nối (không gồm admin và người chơi P2P). ⏱ = giây, 0 là đến khi bấm Tắt. Quái/boss do chủ mỗi phòng thực hiện.</div>' +
       '<hr style="border-color:#334155"><b>⌨️ Bảng lệnh</b><input id="admCon" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="gõ lệnh, vd: /help" onkeydown="event.stopPropagation();if(event.key===\'Enter\')TWE_ADM_UI.con(this)"><button onclick="TWE_ADM_UI.con(document.getElementById(\'admCon\'))">GỬI ↵</button><div id="admLog">' + esc(logBuf) + '</div>';
   }
   function toolsToggle(show) {
@@ -278,20 +281,20 @@
   }
   const _eUpd = Enemy.prototype.update;
   Enemy.prototype.update = function () {
-    if (isAdm() && ADM.freezeAll) return;
-    if (isAdm() && ADM.dark && ADM.darkNpc && live() && !SIM && !WATCH && !this.net) return blindUpdate(this, _eUpd, arguments);
+    if (adx() && ADM.freezeAll) return;
+    if (adx() && ADM.dark && ADM.darkNpc && live() && !SIM && !WATCH && !this.net) return blindUpdate(this, _eUpd, arguments);
     return _eUpd.apply(this, arguments);
   };
 
 
   /* ---- Bóng tối: chỉ nhìn thấy vùng quanh xe (vẽ phủ lên toàn cảnh, trước HUD) ---- */
   const _minimap = minimap; minimap = function () {
-    if (isAdm() && ADM.dark && live() && !SIM) {
+    if (adx() && ADM.dark && live() && !SIM) {
       const px = player.x - camX, py = player.y - camY, R = Math.max(60, ADM.darkR), g = ctx.createRadialGradient(px, py, R * .5, px, py, R);
       g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore();
     }
     const r = _minimap.apply(this, arguments);
-    if (isAdm() && ADM.dark && live()) { try { mc.fillStyle = '#000'; mc.fillRect(0, 0, 130, 130) } catch (e) { } }
+    if (adx() && ADM.dark && live()) { try { mc.fillStyle = '#000'; mc.fillRect(0, 0, 130, 130) } catch (e) { } }
     return r;
   };
 
@@ -487,6 +490,54 @@
   ['pointerdown', 'mousedown', 'touchstart'].forEach(ev => bar.addEventListener(ev, e => e.stopPropagation()));
   setInterval(() => { const adm = isAdm(); fab.style.display = adm ? 'flex' : 'none'; if (adm) place(); const b = !!(adm && ADM.brush && live()); bl.style.display = b ? 'block' : 'none'; bar.style.display = b ? 'flex' : 'none'; if (b) drawBar() }, 400);
 
+  /* ================= F) HIỆU ỨNG / LỆNH CHO TẤT CẢ NGƯỜI CHƠI ĐANG KẾT NỐI MÁY CHỦ =================
+     Admin gửi gói nhỏ qua kênh "thông báo toàn máy chủ" có sẵn của server; online.js chuyển gói cho TWE_FX.handle ở MỖI máy.
+     Máy admin bỏ qua gói (admin dùng công cụ của mình). Người chơi P2P (không có máy chủ) không nhận được. */
+  const FX_MARK = '[[FX]]', FXK = ['dark', 'darkNpc', 'night', 'rain', 'snow', 'storm', 'freezeAll', 'speed', 'dmg', 'rate', 'god', 'noclip', 'infAmmo', 'hitbox'];
+  const FXDEF = { dark: false, darkNpc: true, night: false, rain: false, snow: false, storm: false, freezeAll: false, speed: 1, dmg: 1, rate: 1, god: false, noclip: false, infAmmo: false, hitbox: false };
+  const FXN = { dark: 'bóng tối', night: 'ban đêm', rain: 'mưa', snow: 'tuyết', storm: 'bão', freezeAll: 'quái đứng yên', speed: 'tốc độ', dmg: 'sát thương', rate: 'tốc bắn', god: 'bất tử', noclip: 'xuyên tường', infAmmo: 'vô hạn đạn', hitbox: 'khung va chạm' };
+  function fxClear() { FXK.forEach(k => { ADM[k] = FXDEF[k] }); FXON = false; fxUntil = 0; try { if (player && player.recalc) player.recalc() } catch (e) { } }
+  setInterval(() => { if (FXON && fxUntil && Date.now() > fxUntil) fxClear() }, 500);
+  const hostNow = () => !!(window.TWE_ONLINE && TWE_ONLINE.isHost && TWE_ONLINE.isHost());
+  window.TWE_FX = {
+    handle(m) { // null: không phải gói hiệu ứng · '': đã xử lý, không hiện gì · chuỗi: nội dung banner
+      const s = String((m && m.m) || ''); if (s.slice(0, FX_MARK.length) !== FX_MARK) return null;
+      let p; try { p = JSON.parse(s.slice(FX_MARK.length)) } catch (e) { return '' }
+      if (!p || isAdm()) return '';
+      try {
+        if (p.c) { fxClear(); return 'Quản trị viên đã tắt mọi hiệu ứng' }
+        if (p.h) { if (live()) player.hp = player.maxHp; return '💚 Bạn được hồi đầy máu' }
+        if (p.x) { if (live()) { player.inv = 0; hurtPlayer(player.maxHp * 100, null) } return '☠️ Quản trị viên đã hạ gục mọi người' }
+        if (p.n !== undefined || p.b || p.k) { if (hostNow() && live()) { if (p.k) killAll(); else if (p.b) summon(1, true); else summon(Math.max(1, Math.min(50, +p.n || 1)), false) } return '' }
+        if (!p.v) return '';
+        const on = [], off = [];
+        Object.keys(p.v).forEach(k => {
+          if (!FXK.includes(k)) return; const was = ADM[k];
+          ADM[k] = typeof FXDEF[k] === 'number' ? Math.max(.1, Math.min(10, +p.v[k] || 1)) : !!p.v[k];
+          if (k !== 'darkNpc' && ADM[k] !== was) (ADM[k] !== FXDEF[k] ? on : off).push(FXN[k] || k);
+        });
+        if (p.r) ADM.darkR = Math.max(60, Math.min(3000, +p.r || 260));
+        fxUntil = p.s > 0 ? Date.now() + p.s * 1000 : 0; FXON = FXK.some(k => ADM[k] !== FXDEF[k]);
+        if (!FXON) { try { player.recalc() } catch (e) { } }
+        return (on.length || off.length) ? '🛠️ Quản trị viên' + (on.length ? ' bật: ' + on.join(', ') : '') + (off.length ? ' · tắt: ' + off.join(', ') : '') + (p.s > 0 ? ' (' + p.s + 's)' : '') : '';
+      } catch (e) { return '' }
+    }
+  };
+  const fxSend = (p, label) => asrv(async () => { await A('/api/admin/announce', { m: FX_MARK + JSON.stringify(p) }); log('📡 Đã gửi "' + label + '" tới mọi người đang kết nối máy chủ (không gồm admin; người chơi P2P không nhận)') });
+  const FXC = ['dark', 'night', 'rain', 'snow', 'storm', 'god', 'speed', 'dmg', 'rate', 'noclip', 'fly', 'ammo', 'infammo', 'hitbox', 'npcfreeze', 'heal', 'kill', 'spawn', 'boss', 'killnpc'];
+  function fxAll(c, rest) {
+    const nums = rest.map(x => (x !== '' && !isNaN(+x)) ? +x : undefined), off = rest.includes('off'), sec = n => (n > 0 ? { s: Math.round(n) } : {});
+    const BOOL = { night: 'night', rain: 'rain', snow: 'snow', storm: 'storm', god: 'god', noclip: 'noclip', fly: 'noclip', hitbox: 'hitbox', ammo: 'infAmmo', infammo: 'infAmmo', npcfreeze: 'freezeAll' };
+    if (c === 'dark') { const r = nums[0] || ADM.darkR || 260; return fxSend(Object.assign({ v: { dark: !off, darkNpc: 1 }, r }, sec(nums[1])), off ? 'tắt bóng tối' : 'bóng tối tầm ' + r) }
+    if (BOOL[c]) { const v = {}; v[BOOL[c]] = !off; return fxSend(Object.assign({ v }, sec(nums.find(n => n !== undefined))), (off ? 'tắt ' : 'bật ') + FXN[BOOL[c]]) }
+    if (c === 'speed' || c === 'dmg' || c === 'rate') { const v = {}; v[c] = off || !nums[0] ? 1 : nums[0]; return fxSend(Object.assign({ v }, sec(nums[1])), FXN[c] + ' ×' + v[c]) }
+    if (c === 'heal') return fxSend({ h: 1 }, 'hồi máu');
+    if (c === 'kill') { if (!confirm('Hạ gục TẤT CẢ người chơi đang online?')) return log('Đã hủy'); return fxSend({ x: 1 }, 'hạ gục tất cả') }
+    if (c === 'spawn') return fxSend({ n: Math.max(1, Math.min(50, nums[0] || 5)) }, 'thêm quái (chủ phòng thực hiện)');
+    if (c === 'boss') return fxSend({ b: 1 }, 'triệu hồi boss (chủ phòng thực hiện)');
+    if (c === 'killnpc') return fxSend({ k: 1 }, 'xóa quái (chủ phòng thực hiện)');
+  }
+
   const U = window.TWE_ADM_UI = {
     tog(k) { ADM[k] = !ADM[k]; if (k === 'noclip') log('Xuyên tường: ' + (ADM.noclip ? 'BẬT' : 'TẮT')); refreshBox() },
     all() { const on = !(ADM.god && ADM.infGems && ADM.infExp); ADM.god = ADM.infGems = ADM.infExp = on; if (on) { ADM.speed = Math.max(ADM.speed, 2) } refreshBox(); log(on ? '♾️ Đã bật VÔ HẠN: bất tử, gems, EXP' : 'Đã tắt vô hạn') },
@@ -502,6 +553,8 @@
     possess() { possessEnemy(selEnemy()) },
     all_(c) { const k = val('adAk'); slash(c, c === 'give' ? ['all', k] : c === 'mute' ? ['all', '10'] : c === 'gems' ? ['all', val('adAg') || '0'] : ['all']) },
     announce() { const m = val('adAn'); if (!m) return log('Nhập nội dung thông báo'); slash('announce', [m]) },
+    fx(c) { const s = val('adFxS') || '', r = val('adFxR') || String(ADM.darkR || 260), n = val('adFxN') || '2', a = c === 'dark' ? [r, s] : (c === 'speed' || c === 'dmg' || c === 'rate') ? [n, s] : c === 'spawn' ? [n] : (c === 'heal' || c === 'kill' || c === 'boss' || c === 'killnpc') ? [] : [s]; fxAll(c, a.filter(x => x !== '')) },
+    fxOff() { fxSend({ c: 1 }, 'tắt mọi hiệu ứng') },
     darkR() { ADM.darkR = Math.max(60, +val('adDr') || 260); log('Tầm nhìn bóng tối = ' + ADM.darkR) },
     brush(m) { const s = Math.round((+val('adBs') || ADM.brushSize) / 40) * 40; ADM.brushSize = Math.max(40, s); ADM.brush = ADM.brush === m ? '' : m; log(ADM.brush ? (ADM.brush === 'add' ? '🧱 Chế độ VẼ tường: bấm lên bản đồ' : '🧹 Chế độ XÓA tường: bấm vào tường') : 'Đã tắt chế độ chỉnh bản đồ'); if (ADM.brush && typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches) toolsToggle(false); else refreshBox() },
     undo() { undoWall() }, resetMap() { resetWalls() },
@@ -515,13 +568,16 @@
       const [c, ...a] = line.split(/\s+/), n = +a[0];
       try {
         if (/^(all|\*)$/i.test(a[0] || '') && ['gems', 'exp', 'level', 'max'].includes(c.toLowerCase())) { runAll(c.toLowerCase(), a.slice(1)); return }
+        if (/^(all|\*)$/i.test(a[0] || '') && FXC.includes(c.toLowerCase())) { fxAll(c.toLowerCase(), a.slice(1)); return }
         switch (c.toLowerCase()) {
           case 'help': log('Công cụ: god noclip invis hitbox night rain snow storm freeze inf dark [R|off|npc] ammo | speed N | dmg N | rate N | gems N | exp N | level N | hp | max | spawn N | boss | killall | tank KEY | possess | brush add|del [cỡ] | undo | resetmap | inv | take KEY | deathwait [giây] | js CODE'); log('Lệnh /: /kick /ban /unban /mute /unmute /freeze [tên] · /slap /kill /spec /heal [tên] · /tp X Y · /tp [A] [B] · /goto /bring [tên] · /give [tên] KEY · /map small|big · /restart (/rr) · /bots N · /announce [nội dung]');
+          log('Hiệu ứng cho TẤT CẢ online: /dark all [R] [giây] · /night|rain|snow|storm|god|noclip|ammo|hitbox|npcfreeze all [off] [giây] · /speed|dmg|rate all N [giây] · /heal all · /kill all · /spawn all N · /boss all · /killnpc all · /clearfx');
           log('Gửi tới TẤT CẢ online (qua server, thêm force để gửi mọi tài khoản): /kick|/freeze [giây]|/bring|/mute [phút]|/unmute|/ban [giờ]|/unban|/give KEY|/gems N|/exp N|/level N|/max  — thêm chữ all, vd: /kick all'); break;
           case 'god': U.tog('god'); break; case 'noclip': case 'fly': U.tog('noclip'); break; case 'invis': U.tog('invisible'); break; case 'hitbox': U.tog('hitbox'); break; case 'night': U.tog('night'); break; case 'rain': U.tog('rain'); break; case 'snow': U.tog('snow'); break; case 'storm': U.tog('storm'); break; case 'freeze': if (a.length) slash('freeze', a); else { U.tog('freezeAll'); log('Đóng băng quái: ' + (ADM.freezeAll ? 'BẬT' : 'TẮT')) } break;
           case 'dark': if (a[0] === 'npc') { ADM.darkNpc = !ADM.darkNpc; log('NPC cũng bị tối: ' + (ADM.darkNpc ? 'BẬT' : 'TẮT')); break } if (a[0] === 'off') ADM.dark = false; else { if (+a[0] >= 60) ADM.darkR = Math.round(+a[0]); ADM.dark = a[0] === undefined ? !ADM.dark : true } log('Bóng tối: ' + (ADM.dark ? 'BẬT (tầm nhìn ' + ADM.darkR + (ADM.darkNpc ? ', NPC cũng bị tối' : '') + ')' : 'TẮT')); break;
           case 'ammo': case 'infammo': U.tog('infAmmo'); log('Vô hạn đạn: ' + (ADM.infAmmo ? 'BẬT' : 'TẮT')); break;
           case 'deathwait': if (a[0] !== undefined && !isNaN(n)) deathWait = Math.max(0, Math.min(60, Math.round(n))); log('Thời gian chờ khi chết: ' + (deathWait > 0 ? deathWait + ' giây' : 'TẮT')); break;
+          case 'clearfx': fxSend({ c: 1 }, 'tắt mọi hiệu ứng'); break;
           case 'announce': case 'say': case 'kick': case 'ban': case 'unban': case 'mute': case 'unmute': case 'slap': case 'kill': case 'spec': case 'heal': case 'equip': case 'goto': case 'bring': case 'map': case 'changemap': case 'restart': case 'rr': case 'gravity': case 'bots': slash(c.toLowerCase(), a); break; case 'inf': U.all(); break;
           case 'speed': ADM.speed = n || 1; break; case 'dmg': ADM.dmg = n || 1; break; case 'rate': ADM.rate = n || 1; break;
           case 'gems': D.gems = Math.max(0, n || 0); save(); log('Gems = ' + D.gems); break;
@@ -545,13 +601,13 @@
   };
 
   /* ---- hook vào game ---- */
-  const on = k => isAdm() && ADM[k];
+  const on = k => adx() && ADM[k];
   const _pushOut = pushOut; pushOut = function (o, r) { if (on('noclip') && o === player) return; return _pushOut.apply(this, arguments) };
   const _hurt = hurtPlayer; hurtPlayer = function () { if (on('god')) return; return _hurt.apply(this, arguments) };
   let flash = 0; const snow = Array.from({ length: 120 }, () => ({ x: Math.random(), y: Math.random(), v: .5 + Math.random() * 1.2, s: Math.random() * 6, r: 1 + Math.random() * 2.2 }));
   const rain = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), v: .6 + Math.random() * .8 }));
   const _dz = drawZones; drawZones = function () {
-    _dz.apply(this, arguments); if (!isAdm() || typeof player === 'undefined' || !player) return;
+    _dz.apply(this, arguments); if (!adx() || typeof player === 'undefined' || !player) return;
     if (ADM.hitbox) {
       ctx.save(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#22d3ee'; ctx.beginPath(); ctx.arc(player.x - camX, player.y - camY, 24, 0, 7); ctx.stroke();
       ctx.strokeStyle = '#f87171'; enemies.forEach(e => { if (!e.dead && Math.abs(e.x - player.x) < 1200 && Math.abs(e.y - player.y) < 800) { ctx.beginPath(); ctx.arc(e.x - camX, e.y - camY, e.r || 24, 0, 7); ctx.stroke() } });
@@ -571,7 +627,7 @@
   };
   function tick() {
     requestAnimationFrame(tick);
-    if (!isAdm() || !live()) return;
+    if (!adx() || !live()) return;
     if (ADM.infGems && D.gems < 1e11) D.gems = 1e12;
     if (ADM.infExp && frame % 90 === 0) { try { player.addExp(1e8) } catch (e) { } }
     if (ADM.god) player.hp = player.maxHp;
