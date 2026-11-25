@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Tank Warfare: Evolution</title>
+<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Tank Warfare: Evolution</title>
 <style>
 :root{--bg:#0b0f19;--pn:rgba(15,23,42,.93);--tx:#e2e8f0;--mu:#94a3b8}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px system-ui,sans-serif;overflow:hidden;user-select:none;color-scheme:dark}
@@ -578,7 +578,7 @@ function wipe(){if(confirm('Xoá toàn bộ tiến trình?')){D=fresh();try{loca
 function menuInfo(){$('saveInfo').innerHTML=`Đã lưu: Cấp <b>${D.level}</b> · ${S[D.type].name} · 💎 ${D.gems}`}
 // ---- Trạng thái ----
 let mode='pve',tscore={b:0,r:0};const WIN=1000,foeOf=(a,b)=>mode==='pvp'?a.team!==b.team:a!==b,ff=(a,b)=>mode==='pvp'&&!!a&&!!b&&a.team===b.team;
-let player=null,traps=[],minions=[],proj=[],enemies=[],shapes=[],fx=[],running=false,mx=0,my=0,camX=0,camY=0,autoFire=false,autoSpin=false,score=0,frame=0,spawnT=0,evoQ=[],sig='';
+const TOUCHMV={on:false,x:0,y:0,m:1};let player=null,traps=[],minions=[],proj=[],enemies=[],shapes=[],fx=[],running=false,mx=0,my=0,camX=0,camY=0,autoFire=false,autoSpin=false,score=0,frame=0,spawnT=0,evoQ=[],sig='';
 const keys={};
 const paused=()=>!$('qpanel').classList.contains('hidden')||!$('shop').classList.contains('hidden')||!$('evo').classList.contains('hidden');
 class P{
@@ -591,9 +591,9 @@ class P{
   while(this.exp>=expNeed(this.level)){this.exp-=expNeed(this.level);this.level++;this.pts++;qStat('levels',1);up=true;if(EVO[this.level])evoQ.push(EVO[this.level])}
   if(up)save();nextEvo()}
  addLevels(n){const o=this.level;this.level+=n;this.pts+=n;qStat('levels',n);for(const L in EVO)if(o<+L&&this.level>=+L)evoQ.push(EVO[L]);text(this.x,this.y-40,`+${n} CẤP`,'#f472b6');save();nextEvo()}
- update(){stepRc(this);let dx=0,dy=0;if(keys.KeyW||keys.ArrowUp)dy--;if(keys.KeyS||keys.ArrowDown)dy++;if(keys.KeyA||keys.ArrowLeft)dx--;if(keys.KeyD||keys.ArrowRight)dx++;
+ update(){stepRc(this);let dx=0,dy=0;if(keys.KeyW||keys.ArrowUp)dy--;if(keys.KeyS||keys.ArrowDown)dy++;if(keys.KeyA||keys.ArrowLeft)dx--;if(keys.KeyD||keys.ArrowRight)dx++;if(TOUCHMV.on){dx=TOUCHMV.x;dy=TOUCHMV.y}
   let sm=1;if(this.frz>0){this.frz--;sm=.4}
-  if(dx||dy){const a=Math.atan2(dy,dx);this.x+=Math.cos(a)*this.speed*sm;this.y+=Math.sin(a)*this.speed*sm;this.ba=a;this.x=Math.max(40,Math.min(MAP-40,this.x));this.y=Math.max(40,Math.min(MAP-40,this.y))}
+  if(dx||dy){const a=Math.atan2(dy,dx);const tm=TOUCHMV.on?TOUCHMV.m:1;this.x+=Math.cos(a)*this.speed*sm*tm;this.y+=Math.sin(a)*this.speed*sm*tm;this.ba=a;this.x=Math.max(40,Math.min(MAP-40,this.x));this.y=Math.max(40,Math.min(MAP-40,this.y))}
   this.ang=autoSpin?this.ang+.08:Math.atan2(my-cv.height/2,mx-cv.width/2)+this.off;
   if(keys.Space||autoFire)this.shoot();if(this.cd>0)this.cd--;if(this.hp<this.maxHp)this.hp=Math.min(this.maxHp,this.hp+this.regen)}
  shoot(){if(this.barrels.rot){rotShoot(this);return}const canN=this.cd<=0,canM=frame>=(this.mt||0);if(!canN&&!canM)return;curOwn=this;const k=(this.r||26)/26,d=this.dmg,s=this.ps,pr=this.pr,c=this.bc||this.color,tr=Math.max(14,Math.min(26,pr*1.4+6))*k;
@@ -2113,6 +2113,102 @@ addEventListener('keydown',e=>{
   const tg=TEAMS[m[1]==='0'?9:+m[1]-1];
   if(tg)setAtk(tg);
 },true);
+</script>
+<script>
+/* ===== ĐIỀU KHIỂN CẢM ỨNG CHO ĐIỆN THOẠI (màn hình ngang) =====
+   Trái: cần di chuyển + nút admin (nếu là admin). Phải: cần ngắm/bắn + nút xoay 180°, tự bắn, tự xoay. */
+(function () {
+  'use strict';
+  let usedTouch = false, aimAng = 0, fireOn = false, vis = false;
+  const $$ = id => document.getElementById(id);
+  const coarse = () => { try { return matchMedia('(pointer:coarse)').matches } catch (e) { return false } };
+  const enabled = () => coarse() || usedTouch;
+  addEventListener('touchstart', () => { usedTouch = true }, { capture: true, passive: true });
+
+  const css = document.createElement('style');
+  css.textContent = '#tweTouch{display:none;--ts:clamp(92px,27vh,132px);--tb:clamp(44px,13vh,56px)}body.twe-touch #tweTouch{display:block}' +
+    '.twc{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:12;display:flex;align-items:flex-end;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}' +
+    '#twL{left:calc(env(safe-area-inset-left,0px) + 12px)}#twR{right:calc(env(safe-area-inset-right,0px) + 12px)}' +
+    '.twst{position:relative;width:var(--ts);height:var(--ts);border-radius:50%;background:rgba(15,23,42,.45);border:2px solid rgba(148,163,184,.55);touch-action:none}' +
+    '.twst i{position:absolute;left:50%;top:50%;width:46%;height:46%;margin:-23% 0 0 -23%;border-radius:50%;background:rgba(56,189,248,.65);border:2px solid rgba(255,255,255,.7);pointer-events:none}#twSa i{background:rgba(248,113,113,.7)}' +
+    '#twBt,#twAd{display:flex;gap:8px;align-items:flex-end;margin-bottom:6px}' +
+    '#tweTouch button{width:var(--tb);height:var(--tb);border-radius:50%;padding:0;font-size:9px;line-height:1.05;background:rgba(15,23,42,.62);border:2px solid rgba(148,163,184,.6);color:#e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation}' +
+    '#tweTouch button b{font-size:20px;line-height:1}#tweTouch button.on{background:rgba(22,163,74,.85);border-color:#4ade80}' +
+    '#twePort{display:none;position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.96);color:#e2e8f0;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font:700 20px system-ui;padding:20px}#twePort b{font-size:64px}' +
+    'body.twe-touch #lb{display:none!important}body.twe-touch #sideR{bottom:auto!important;top:calc(env(safe-area-inset-top,0px) + 196px)!important}body.twe-touch #admFab{display:none!important}body.twe-touch #admBrushLayer{z-index:11!important}' +
+    'html,body{overscroll-behavior:none}';
+  document.head.appendChild(css);
+
+  const mk = (tag, id, cls, parent, html) => { const e = document.createElement(tag); if (id) e.id = id; if (cls) e.className = cls; if (html != null) e.innerHTML = html; parent.appendChild(e); return e };
+  const root = mk('div', 'tweTouch', '', document.body), L = mk('div', 'twL', 'twc', root), R = mk('div', 'twR', 'twc', root);
+  const sm = mk('div', 'twSm', 'twst', L); mk('i', '', '', sm);
+  const ad = mk('div', 'twAd', '', L), bTool = mk('button', 'twTool', '', ad, '<b>🛠</b><span>Công cụ</span>'), bPan = mk('button', 'twPan', '', ad, '<b>👑</b><span>Quản trị</span>');
+  const bt = mk('div', 'twBt', '', R), bSpin = mk('button', 'twSpin', '', bt, '<b>🌀</b><span>Tự xoay</span>'), bAF = mk('button', 'twAF', '', bt, '<b>🔥</b><span>Tự bắn</span>'), bRot = mk('button', 'twRot', '', bt, '<b>↻</b><span>180°</span>');
+  const sa = mk('div', 'twSa', 'twst', R); mk('i', '', '', sa);
+  const port = mk('div', 'twePort', '', document.body, '<b>📱↻</b><div>Hãy xoay ngang điện thoại để chơi</div>');
+  root.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* ---- cần điều khiển ---- */
+  function stick(el, cb) {
+    const knob = el.firstElementChild; let id = null, cx = 0, cy = 0, r = 1;
+    const upd = e => { const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy) || 1, k = d > r ? r / d : 1; knob.style.transform = 'translate(' + dx * k + 'px,' + dy * k + 'px)'; cb(dx * k / r, dy * k / r, true) };
+    const rel = () => { id = null; knob.style.transform = ''; cb(0, 0, false) };
+    el.addEventListener('pointerdown', e => { if (id !== null) return; e.preventDefault(); id = e.pointerId; try { el.setPointerCapture(id) } catch (x) { } const b = el.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + b.height / 2; r = Math.max(20, b.width * .36); upd(e) });
+    el.addEventListener('pointermove', e => { if (e.pointerId === id) { e.preventDefault(); upd(e) } });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => el.addEventListener(n, e => { if (e.pointerId === id) rel() }));
+    return { release() { if (id !== null) rel(); else knob.style.transform = '' } };
+  }
+  const mv = TOUCHMV;
+  const setMove = (nx, ny, act) => {
+    const len = Math.hypot(nx, ny);
+    if (act && len > .12) { mv.on = true; mv.x = nx / len; mv.y = ny / len; mv.m = Math.max(.3, Math.min(1, (len - .12) / .6)) } else mv.on = false;
+    keys.KeyA = mv.on && mv.x < -.38; keys.KeyD = mv.on && mv.x > .38; keys.KeyW = mv.on && mv.y < -.38; keys.KeyS = mv.on && mv.y > .38;
+  };
+  const applyAim = () => { mx = cv.width / 2 + Math.cos(aimAng) * 220; my = cv.height / 2 + Math.sin(aimAng) * 220 };
+  const setAim = (nx, ny, act) => {
+    const len = Math.hypot(nx, ny);
+    if (act && len > .22) { aimAng = Math.atan2(ny, nx); keys.Space = true; fireOn = true; applyAim() } else if (fireOn) { keys.Space = false; fireOn = false }
+  };
+  const sMove = stick(sm, setMove), sAim = stick(sa, setAim);
+  const reset = () => { sMove.release(); sAim.release(); setMove(0, 0, false); setAim(0, 0, false) };
+  addEventListener('blur', reset); document.addEventListener('visibilitychange', reset);
+
+  /* ---- nút ---- */
+  const tap = (el, fn) => el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn() });
+  tap(bRot, () => { aimAng += Math.PI; applyAim() });
+  tap(bAF, () => { autoFire = !autoFire; text(player.x, player.y, autoFire ? 'AUTO-FIRE: BẬT' : 'AUTO-FIRE: TẮT', '#22c55e') });
+  tap(bSpin, () => { autoSpin = !autoSpin; text(player.x, player.y, autoSpin ? 'AUTO-SPIN: BẬT' : 'AUTO-SPIN: TẮT', '#a855f7') });
+  tap(bTool, () => { if (window.TWE_ADMIN) TWE_ADMIN.tools() });
+  tap(bPan, () => { if (window.TWE_ADMIN) TWE_ADMIN.open() });
+
+  /* ---- tự chuyển sang màn hình ngang khi vào game (cần chạm của người chơi) ---- */
+  const tryLock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => { }) } catch (e) { } };
+  function goLandscape() {
+    if (!enabled()) return;
+    try {
+      const el = document.documentElement, fs = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (fs && !document.fullscreenElement && !document.webkitFullscreenElement) { const p = fs.call(el); if (p && p.then) p.then(tryLock, tryLock); else tryLock() } else tryLock();
+    } catch (e) { }
+  }
+  const _begin = begin; begin = function () { goLandscape(); return _begin.apply(this, arguments) };
+
+  /* ---- vòng cập nhật ---- */
+  function tick() {
+    requestAnimationFrame(tick);
+    const on = enabled();
+    port.style.display = on && running && !SIM && innerHeight > innerWidth ? 'flex' : 'none';
+    const v = on && running && !!player && !SIM && !WATCH && !paused();
+    if (v !== vis) { vis = v; document.body.classList.toggle('twe-touch', v); if (!v) reset() }
+    if (!v) return;
+    const st = $$('stats'), statsOpen = !!st && !st.classList.contains('hidden');
+    if (statsOpen && L.style.display !== 'none') sMove.release();
+    L.style.display = statsOpen ? 'none' : '';
+    ad.style.display = window.TWE_ACCOUNT && window.TWE_ACCOUNT.isAdmin ? 'flex' : 'none';
+    bAF.classList.toggle('on', !!autoFire); bSpin.classList.toggle('on', !!autoSpin);
+    if (mv.on || fireOn || sa.firstElementChild.style.transform) applyAim();
+  }
+  tick();
+})();
 </script>
 <script src="hub.js"></script><script src="account.js"></script><script src="admin.js"></script><script src="online.js"></script>
 <script src="/net.js"></script>
