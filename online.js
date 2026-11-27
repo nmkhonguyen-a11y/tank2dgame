@@ -484,6 +484,7 @@
     if (ON && ready) { const ow = ownerOf(o); if (ow >= 0) outL.push({ n: ow, l: [r1(x), r1(y), r2(a), Math.round(dm * (GB && GB.km || 1)), c] }) }
     return _fireL.apply(this, arguments);
   };
+  const _flagLaser = flagLaser; flagLaser = function () { if (ON && !AUTH) return; return _flagLaser.apply(this, arguments) }; // cờ do chủ phòng tính, máy khách nhận qua tin 'fl'
   const _pvpTick = pvpTick; pvpTick = function () { if (!ON) return _pvpTick(); if (ready) netTick() };
   const _hud = hud; hud = function () { _hud(); if (ON && ready) onlineHud() };
   const _exitGame = exitGame; exitGame = function () { if (!ON) return _exitGame(); if (!confirm('Rời trận online?')) return; if (MODE === 'pve') { try { save() } catch (e) { } } leave(true) };
