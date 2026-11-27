@@ -29,7 +29,7 @@
   const setMsg = (t, ok) => { msg = t ? '<div class="pn" style="color:' + (ok ? '#4ade80' : '#fcd34d') + ';word-break:break-word">' + t + '</div>' : '' };
   const allKeys = () => Object.keys(S).sort((a, b) => S[a].name.localeCompare(S[b].name));
   const tankOpts = (selK, none) => (none ? '<option value="">' + none + '</option>' : '') + allKeys().map(k => '<option value="' + k + '"' + (k === selK ? ' selected' : '') + '>' + esc(S[k].name) + ' [' + S[k].tier + '] ' + k + '</option>').join('');
-  const gunOpts = none => (none ? '<option value="">' + none + '</option>' : '') + Object.keys(DGUN).map(k => '<option value="' + k + '">' + esc(DGUN[k]) + ' (' + k + ')</option>').join('');
+  const gunOpts = none => (none ? '<option value="">' + none + '</option>' : '') + '<option value="creator">🔧 Quyền tạo xe tăng (creator)</option>' + Object.keys(DGUN).map(k => '<option value="' + k + '">' + esc(DGUN[k]) + ' (' + k + ')</option>').join('');
   const val = id => { const e = $q(id); return e ? String(e.value).trim() : '' };
   const fdate = t => t ? new Date(t).toLocaleString() : '—';
 
@@ -69,8 +69,8 @@
     h += '<div class="pn" style="border-color:#f59e0b"><b style="font-size:16px">👤 ' + esc(u.username) + ' · ID ' + u.id + '</b> ' + flag(u) + '<div class="mu" style="font-size:11px">Tạo: ' + fdate(u.created) + ' · Thấy lần cuối: ' + fdate(u.seen) + ' · IP: ' + esc(u.ip || '—') + ' · phiên bản dữ liệu ' + u.rev + '</div>' +
       '<div class="adr"><label>💎 Gems <input id="aeG" type="number" value="' + (sv.gems || 0) + '" style="width:130px"></label><label>Cấp <input id="aeL" type="number" value="' + (sv.level || 1) + '" style="width:80px"></label><label>+EXP <input id="aeE" type="number" value="0" style="width:120px"></label><label>Xe đang dùng <select id="aeT">' + tankOpts(sv.type) + '</select></label><button style="background:#16a34a" onclick="TWE_ADMIN.saveUser()">LƯU CHỈNH SỬA</button><button style="background:#b45309" onclick="TWE_ADMIN.maxUser()">∞ VÔ HẠN (1.000 tỷ gems + 1 tỷ EXP)</button></div>' +
       '<div class="mu" style="margin-top:4px"><b>🚗 Túi xe (' + own.length + ')</b> — bấm ✕ để lấy lại</div><div style="max-height:90px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px">' + own.map(k => '<span class="acg" style="padding:2px 6px;margin:0;font-size:11px">' + esc(S[k] ? S[k].name : k) + (k !== 'basic' ? ' <a href="#" style="color:#f87171" onclick="TWE_ADMIN.takeTank(\'' + k + '\');return false">✕</a>' : '') + '</span>').join('') + '</div>' +
-      '<div class="adr"><select id="aeAT" style="max-width:260px">' + tankOpts('', '— chọn xe để cấp —') + '</select><button onclick="TWE_ADMIN.giveTank()">➕ CẤP XE</button><select id="aeAG">' + gunOpts('— súng drone —') + '</select><button onclick="TWE_ADMIN.giveGun()">➕ CẤP SÚNG</button></div>' +
-      '<div class="mu" style="font-size:11px">Súng drone đang có: ' + ((sv.dguns || []).map(k => esc(DGUN[k] || k)).join(', ') || 'không') + '</div>' +
+      '<div class="adr"><select id="aeAT" style="max-width:260px">' + tankOpts('', '— chọn xe để cấp —') + '</select><button onclick="TWE_ADMIN.giveTank()">➕ CẤP XE</button><select id="aeAG">' + gunOpts('— súng drone —') + '</select><button onclick="TWE_ADMIN.giveGun()">➕ CẤP SÚNG</button><button style="background:#0ea5e9" onclick="TWE_ADMIN.giveCreator()">🔧 CẤP QUYỀN TẠO XE</button></div>' +
+      '<div class="mu" style="font-size:11px">Súng drone đang có: ' + ((sv.dguns || []).filter(k => k !== 'creator').map(k => esc(DGUN[k] || k)).join(', ') || 'không') + ' · Quyền tạo xe: ' + ((sv.dguns || []).includes('creator') ? '✅ có' : '❌ chưa') + '</div>' +
       '<hr style="border-color:#1e293b"><div class="adr"><b>🔑 Mật khẩu</b><span class="mu" style="font-size:11px">(không xem được mật khẩu cũ — chỉ đặt mới)</span><input id="aeP" placeholder="mật khẩu mới (để trống = tự tạo)" style="width:200px"><button style="background:#b45309" onclick="TWE_ADMIN.resetPw()">ĐẶT LẠI MẬT KHẨU</button></div>' +
       (u.admin ? '' : '<div class="adr"><b>⛔ Khóa</b><input id="abH" type="number" placeholder="giờ (0=vĩnh viễn)" style="width:130px"><input id="abR" placeholder="lý do" style="width:160px"><label><input type="checkbox" id="abI"> khóa cả IP</label><button class="red" onclick="TWE_ADMIN.ban(1)">KHÓA</button><button style="background:#16a34a" onclick="TWE_ADMIN.ban(0)">MỞ KHÓA</button></div>' +
         '<div class="adr"><b>🔇 Cấm chat</b><input id="amM" type="number" placeholder="phút (0=vĩnh viễn)" style="width:150px"><button class="red" onclick="TWE_ADMIN.mute(1)">CẤM CHAT</button><button style="background:#16a34a" onclick="TWE_ADMIN.mute(0)">BỎ CẤM</button></div>') +
@@ -126,6 +126,7 @@
     maxUser() { if (confirm('Đặt gems 1.000 tỷ và +1 tỷ EXP cho ' + sel.username + '?')) this.patch({ gems: 1e12, addExp: 1e9 }) },
     giveTank() { if (val('aeAT')) this.patch({ addTanks: [val('aeAT')] }) },
     takeTank(k) { if (confirm('Lấy lại xe này của người chơi?')) this.patch({ removeTanks: [k] }) },
+    giveCreator() { this.patch({ addGuns: ['creator'] }) },
     giveGun() { if (val('aeAG')) this.patch({ addGuns: [val('aeAG')] }) },
     async resetPw() { if (!confirm('Đặt lại mật khẩu cho ' + sel.username + '? Họ sẽ bị đăng xuất.')) return; await run(async () => { const r = await A('/api/admin/resetpw', { id: sel.id, password: val('aeP') }); setMsg('Mật khẩu mới của <b>' + esc(r.username) + '</b> (#' + r.id + '): <b style="font-size:18px;user-select:all">' + esc(r.password) + '</b> — hãy gửi cho họ rồi bảo họ đổi lại.', true) }) },
     async ban(on) { await run(async () => { const r = await A('/api/admin/ban', { id: sel.id, ban: !!on, hours: +val('abH') || 0, reason: val('abR'), ip: !!($q('abI') && $q('abI').checked) }); Object.assign(sel, r.user); setMsg(on ? 'Đã khóa tài khoản.' : 'Đã mở khóa.', true); await this.search(true) }) },
@@ -382,7 +383,7 @@
       }
       case 'give': case 'equip': {
         if (!a[0]) return log('Dùng: /give [mã xe hoặc súng drone] | /give [tên] [mã]');
-        if (a.length >= 2) { const k = a[1], isT = !!S[k]; if (!isT && !DGUN[k]) return log('Không có mã ' + k); return asrv(async () => { const u = await findAcc(a[0]); if (!u) return log('Không thấy tài khoản ' + a[0]); await A('/api/admin/edit', { id: u.id, patch: isT ? { addTanks: [k] } : { addGuns: [k] } }); log('🎁 Đã cấp ' + k + ' cho ' + u.username) }) }
+        if (a.length >= 2) { const k = a[1], isT = !!S[k]; if (!isT && !DGUN[k] && k !== 'creator') return log('Không có mã ' + k); return asrv(async () => { const u = await findAcc(a[0]); if (!u) return log('Không thấy tài khoản ' + a[0]); await A('/api/admin/edit', { id: u.id, patch: isT ? { addTanks: [k] } : { addGuns: [k] } }); log('🎁 Đã cấp ' + k + ' cho ' + u.username) }) }
         const k = a[0];
         if (S[k]) { if (!D.owned.includes(k)) D.owned.push(k); save(); return log('Đã cấp xe ' + k) }
         if (DGUN[k]) { D.dguns = D.dguns || []; if (!D.dguns.includes(k)) D.dguns.push(k); save(); return log('Đã cấp súng drone ' + DGUN[k]) }
@@ -440,7 +441,7 @@
         case 'tp': case 'bring': { if (!live()) return log('Cần đang trong trận để kéo mọi người về chỗ bạn'); const x = Math.round(player.x), y = Math.round(player.y); fn = u => A('/api/admin/cmd', { aid: u.id, cmd: 'tp', x, y, ms: 8000 }); break }
         case 'mute': case 'unmute': { const on = c === 'mute', m = on ? (N || 0) : 0; fn = u => A('/api/admin/mute', { id: u.id, mute: on, minutes: m }); break }
         case 'ban': case 'unban': { const on = c === 'ban', hasH = args[0] !== undefined && !isNaN(N), h = hasH ? N : 0, reason = args.slice(hasH ? 1 : 0).join(' '); fn = u => A('/api/admin/ban', { id: u.id, ban: on, hours: h, reason, ip: false }); break }
-        case 'give': case 'equip': { const k = args[0], isT = !!(k && S[k]); if (!k || (!isT && !DGUN[k])) return log('Dùng: /give all [mã xe hoặc súng drone]'); fn = u => A('/api/admin/edit', { id: u.id, patch: isT ? { addTanks: [k] } : { addGuns: [k] } }); break }
+        case 'give': case 'equip': { const k = args[0], isT = !!(k && S[k]); if (!k || (!isT && !DGUN[k] && k !== 'creator')) return log('Dùng: /give all [mã xe hoặc súng drone]'); fn = u => A('/api/admin/edit', { id: u.id, patch: isT ? { addTanks: [k] } : { addGuns: [k] } }); break }
         case 'gems': if (isNaN(N)) return log('Dùng: /gems all [số gems cộng thêm]'); fn = u => A('/api/admin/edit', { id: u.id, patch: { gems: Math.max(0, Math.round((u.gems || 0) + N)) } }); break;
         case 'exp': if (isNaN(N)) return log('Dùng: /exp all [số EXP cộng thêm]'); fn = u => A('/api/admin/edit', { id: u.id, patch: { addExp: N } }); break;
         case 'level': if (!(N >= 1)) return log('Dùng: /level all [cấp]'); fn = u => A('/api/admin/edit', { id: u.id, patch: { level: Math.round(N) } }); break;
