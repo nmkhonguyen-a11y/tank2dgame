@@ -52,13 +52,40 @@ function upstashStore(url, token) {
       await cmd(['SET', 'twe:index', JSON.stringify({ users: db.users, meta: db.meta })]);
       for (const id of dirty.acc) if (db.accounts[id]) await cmd(['SET', 'twe:acc:' + id, JSON.stringify(db.accounts[id])]);
     },
+    /* Sao lưu theo từng tài khoản (khóa twe:bk:<tên>:acc:<id>) + 1 khóa chỉ mục, gửi theo lô <= ~900KB:
+       kho lớn cũng không vượt giới hạn kích thước 1 yêu cầu của Upstash. */
     async saveBackup(name, db) {
-      await cmd(['SET', 'twe:bk:' + name, JSON.stringify(db)]);
-      const l = JSON.parse((await cmd(['GET', 'twe:bklist'])) || '[]'); l.unshift({ name, t: Date.now() });
-      await cmd(['SET', 'twe:bklist', JSON.stringify(l.slice(0, 15))]);
+      const pre = 'twe:bk:' + name, ids = Object.keys(db.accounts);
+      await cmd(['SET', pre + ':index', JSON.stringify({ users: db.users, meta: db.meta, ids })]);
+      let batch = [], size = 0;
+      const flushBatch = async () => { if (batch.length) { await cmd(['MSET', ...batch]); batch = []; size = 0; } };
+      for (const id of ids) {
+        const v = JSON.stringify(db.accounts[id]);
+        if (batch.length && size + v.length > 900000) await flushBatch();
+        batch.push(pre + ':acc:' + id, v); size += v.length + id.length;
+      }
+      await flushBatch();
+      const l = JSON.parse((await cmd(['GET', 'twe:bklist'])) || '[]').filter(x => x.name !== name); l.unshift({ name, t: Date.now() });
+      const keep = l.slice(0, 15), drop = l.slice(15).filter(d => !keep.some(k => k.name === d.name)); await cmd(['SET', 'twe:bklist', JSON.stringify(keep)]);
+      for (const d of drop) { // dọn bản cũ (không để lỗi dọn dẹp làm hỏng việc sao lưu)
+        try {
+          const ix = JSON.parse((await cmd(['GET', 'twe:bk:' + d.name + ':index'])) || 'null');
+          const keys = ix ? ['twe:bk:' + d.name + ':index'].concat((ix.ids || []).map(id => 'twe:bk:' + d.name + ':acc:' + id)) : ['twe:bk:' + d.name];
+          for (let i = 0; i < keys.length; i += 200) await cmd(['DEL', ...keys.slice(i, i + 200)]);
+        } catch (e) { }
+      }
     },
     async listBackups() { return JSON.parse((await cmd(['GET', 'twe:bklist'])) || '[]'); },
-    async loadBackup(name) { const v = await cmd(['GET', 'twe:bk:' + name]); return v ? JSON.parse(v) : null; }
+    async loadBackup(name) {
+      const ix = await cmd(['GET', 'twe:bk:' + name + ':index']);
+      if (!ix) { const v = await cmd(['GET', 'twe:bk:' + name]); return v ? JSON.parse(v) : null; } // bản sao lưu kiểu cũ (1 khóa duy nhất)
+      const index = JSON.parse(ix), accounts = {};
+      for (let i = 0; i < index.ids.length; i += 100) {
+        const part = index.ids.slice(i, i + 100), vals = await cmd(['MGET', ...part.map(id => 'twe:bk:' + name + ':acc:' + id)]);
+        part.forEach((id, k) => { if (vals[k]) accounts[id] = JSON.parse(vals[k]); });
+      }
+      return { users: index.users, meta: index.meta, accounts };
+    }
   };
 }
 
@@ -528,7 +555,7 @@ function create(opt) {
         return fail(res, 404, 'Không có chức năng này');
       }
       return fail(res, 404, 'Không có chức năng này');
-    } catch (e) { console.error('[tài khoản] lỗi', route, e); return fail(res, 500, 'Lỗi máy chủ'); }
+    } catch (e) { console.error('[tài khoản] lỗi', route, e); return fail(res, 500, route.startsWith('/api/admin/') ? 'Lỗi máy chủ: ' + String((e && e.message) || e).slice(0, 200) : 'Lỗi máy chủ'); }
   }
 
   /* dùng cho hub: kiểm tra token WebSocket */
