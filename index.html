@@ -2150,8 +2150,12 @@ addEventListener('keydown',e=>{
     '#tweTouch button{width:var(--tb);height:var(--tb);border-radius:50%;padding:0;font-size:9px;line-height:1.05;background:rgba(15,23,42,.62);border:2px solid rgba(148,163,184,.6);color:#e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation}' +
     '#tweTouch button b{font-size:20px;line-height:1}#tweTouch button.on{background:rgba(22,163,74,.85);border-color:#4ade80}' +
     '#twePort{display:none;position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.96);color:#e2e8f0;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font:700 20px system-ui;padding:20px}#twePort b{font-size:64px}' +
-    'body.twe-touch #lb{display:none!important}body.twe-touch #sideR{bottom:auto!important;top:calc(env(safe-area-inset-top,0px) + 56px)!important;right:156px!important;flex-direction:row!important;gap:6px}body.twe-touch #sideR .sbtn,body.twe-touch #sideL .sbtn{width:48px;height:48px}body.twe-touch #sideR .sbtn b,body.twe-touch #sideL .sbtn b{font-size:18px}body.twe-touch #admFab{display:none!important}body.twe-touch #admBrushLayer{z-index:11!important}' +
+    'body.twe-touch #lb{display:none!important}body.twe-touch #sideR{bottom:auto!important;top:calc(env(safe-area-inset-top,0px) + 56px)!important;right:178px!important;flex-direction:row!important;gap:6px}body.twe-touch #sideR .sbtn,body.twe-touch #sideL .sbtn{width:48px;height:48px}body.twe-touch #sideR .sbtn b,body.twe-touch #sideL .sbtn b{font-size:18px}body.twe-touch #admFab{display:none!important}body.twe-touch #admBrushLayer{z-index:11!important}' +
     'html,body{overscroll-behavior:none}' +
+    '.twt{position:fixed;top:calc(env(safe-area-inset-top,0px) + 72px);right:calc(env(safe-area-inset-right,0px) + 8px);z-index:12;display:flex;flex-direction:column;align-items:flex-end;gap:8px;touch-action:manipulation;user-select:none;-webkit-user-select:none}#twTb{display:flex;gap:8px}' +
+    '#twZoom{display:flex;align-items:center;gap:6px;background:rgba(15,23,42,.62);border:2px solid rgba(148,163,184,.6);border-radius:22px;padding:4px 10px;color:#e2e8f0;font:600 11px system-ui}#twZoom input{width:70px;margin:0}#twZv{min-width:28px;text-align:right}' +
+    '#tweTouch button.red{background:rgba(185,28,28,.88);border-color:#fca5a5}' +
+    'body.twe-touch #mm{display:none!important}body.twe-touch.twe-map #mm{display:block!important;position:fixed!important;left:50%;top:50%;transform:translate(-50%,-50%);width:min(72vh,72vw);height:min(72vh,72vw);margin:0!important;z-index:16;background:#020617}' +
     '@media (pointer:coarse){.ov button,.pn button{min-height:38px}.ov input,.ov select,.pn input,.pn select{font-size:16px}}';
   document.head.appendChild(css);
 
@@ -2161,6 +2165,9 @@ addEventListener('keydown',e=>{
   const ad = mk('div', 'twAd', '', L), bTool = mk('button', 'twTool', '', ad, '<b>🛠</b><span>Công cụ</span>'), bPan = mk('button', 'twPan', '', ad, '<b>👑</b><span>Quản trị</span>');
   const bt = mk('div', 'twBt', '', R), bSb = mk('button', 'twSb', '', bt, '<b>📊</b><span>Điểm</span>'), bTm = mk('button', 'twTm', '', bt, '<b>⚔</b><span>Đội</span>'), bSpin = mk('button', 'twSpin', '', bt, '<b>🌀</b><span>Tự xoay</span>'), bAF = mk('button', 'twAF', '', bt, '<b>🔥</b><span>Tự bắn</span>'), bRot = mk('button', 'twRot', '', bt, '<b>↻</b><span>180°</span>');
   const sa = mk('div', 'twSa', 'twst', R); mk('i', '', '', sa);
+  const top = mk('div', 'twT', 'twt', root), tb = mk('div', 'twTb', '', top);
+  const bMap = mk('button', 'twMap', '', tb, '<b>🗺</b><span>Bản đồ</span>'), bExit = mk('button', 'twExit', '', tb, '<b>⏏</b><span>Thoát</span>');
+  const zoomBox = mk('div', 'twZoom', '', top, '🔭<input id="twZr" type="range" min="1" max="3.2" step="0.05"><span id="twZv"></span>');
   const port = mk('div', 'twePort', '', document.body, '<b>📱↻</b><div>Hãy xoay ngang điện thoại để chơi</div>');
   root.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -2196,6 +2203,22 @@ addEventListener('keydown',e=>{
   ['pointerup', 'pointercancel'].forEach(n => bSb.addEventListener(n, () => key('keyup', 'Tab')));
   tap(bTm, () => { key('keydown', 'KeyT'); key('keyup', 'KeyT') });
   tap(bRot, () => { aimAng += Math.PI; applyAim() });
+  /* bản đồ nhỏ bị ẩn trên điện thoại; nút 🗺 mở bản đồ lớn giữa màn hình (chạm vào bản đồ hoặc bấm lại để đóng) */
+  const mapOff = () => document.body.classList.remove('twe-map');
+  tap(bMap, () => document.body.classList.toggle('twe-map'));
+  { const mm = $$('mm'); if (mm) mm.addEventListener('pointerdown', e => { if (document.body.classList.contains('twe-map')) { e.preventDefault(); e.stopPropagation(); mapOff() } }) }
+  /* nút thoát: trận offline bấm 2 lần trong 3 giây; online dùng hộp xác nhận "Rời trận online?" của online.js */
+  let exitArm = 0; const exitLbl = s => { bExit.lastChild.textContent = s; bExit.classList.toggle('red', s !== 'Thoát') };
+  tap(bExit, () => {
+    const online = !!(window.TWE_ONLINE && TWE_ONLINE.isOn && TWE_ONLINE.isOn());
+    if (online || exitArm > Date.now()) { exitArm = 0; exitLbl('Thoát'); mapOff(); exitGame(); return }
+    exitArm = Date.now() + 3000; exitLbl('Chắc chắn?'); setTimeout(() => { if (exitArm && exitArm <= Date.now() + 100) { exitArm = 0; exitLbl('Thoát') } }, 3100);
+  });
+  /* thanh tăng tầm nhìn: chỉnh ZM (kéo sang phải = nhìn xa hơn), giống lăn chuột trên máy tính */
+  const zr = $$('twZr'), zv = $$('twZv'); let zDrag = false;
+  zr.addEventListener('input', () => { ZM = Math.max(1, Math.min(3.2, +zr.value || 1.7)); rs() });
+  zr.addEventListener('pointerdown', () => { zDrag = true }); addEventListener('pointerup', () => { zDrag = false }, true);
+  ['pointerdown', 'mousedown', 'touchstart'].forEach(ev => zoomBox.addEventListener(ev, e => e.stopPropagation()));
   tap(bAF, () => { autoFire = !autoFire; text(player.x, player.y, autoFire ? 'AUTO-FIRE: BẬT' : 'AUTO-FIRE: TẮT', '#22c55e') });
   tap(bSpin, () => { autoSpin = !autoSpin; text(player.x, player.y, autoSpin ? 'AUTO-SPIN: BẬT' : 'AUTO-SPIN: TẮT', '#a855f7') });
   tap(bTool, () => { if (window.TWE_ADMIN) TWE_ADMIN.tools() });
@@ -2219,7 +2242,7 @@ addEventListener('keydown',e=>{
     const on = enabled();
     port.style.display = on && running && !SIM && innerHeight > innerWidth ? 'flex' : 'none';
     const v = on && running && !!player && !SIM && !WATCH && !paused();
-    if (v !== vis) { vis = v; document.body.classList.toggle('twe-touch', v); if (!v) reset(); else { const s0 = $$('stats'); if (s0) s0.classList.add('hidden') } } // vào trận: thu gọn bảng chỉ số (mở lại bằng nút U) để không che cần điều khiển
+    if (v !== vis) { vis = v; document.body.classList.toggle('twe-touch', v); if (!v) { reset(); mapOff() } else { const s0 = $$('stats'); if (s0) s0.classList.add('hidden') } } // vào trận: thu gọn bảng chỉ số (mở lại bằng nút U) để không che cần điều khiển
     if (!v) return;
     const st = $$('stats'), statsOpen = !!st && !st.classList.contains('hidden');
     if (statsOpen && L.style.display !== 'none') sMove.release();
@@ -2227,6 +2250,7 @@ addEventListener('keydown',e=>{
     ad.style.display = window.TWE_ACCOUNT && window.TWE_ACCOUNT.isAdmin ? 'flex' : 'none';
     bTm.style.display = typeof T4 !== 'undefined' && T4 ? '' : 'none';
     bAF.classList.toggle('on', !!autoFire); bSpin.classList.toggle('on', !!autoSpin);
+    if (!zDrag && Math.abs(+zr.value - ZM) > .01) zr.value = ZM; zv.textContent = '×' + ZM.toFixed(1);
     if (mv.on || fireOn || sa.firstElementChild.style.transform) applyAim();
   }
   /* ---- tối ưu cho điện thoại: bỏ hiệu ứng glow (tốn GPU), giới hạn hạt nổ ---- */
