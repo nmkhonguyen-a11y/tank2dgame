@@ -369,6 +369,7 @@
       case 'sa': d.a.forEach(addShape); break;
       case 'sr': d.a.forEach(id => { const s = shapeG.get(id); if (s) { s.dead = true; shapeG.delete(id) } }); break;
       case 'sf': { d.a.forEach(addShape); const keep = new Set(d.a.map(x => x[0])); shapeG.forEach((s, id) => { if (!keep.has(id)) { s.dead = true; shapeG.delete(id) } }); break }
+      case 'bolt': if (window.TWE_FX && TWE_FX.bolt) TWE_FX.bolt(d.x, d.y); break;
       case 'fl': d.a.forEach(q => { const f = FLAGS[q[0]]; if (!f) return; f.hp = q[1]; if (q[2] && !f.dead) flagsJoin(f, q[3]) }); myTeam = player.team; break;
       case 'join': { const f = FLAGS[d.f]; if (f && !f.dead) flagsJoin(f, d.to); Object.values(stats).forEach(s => { if (s.team === d.f) s.team = d.to }); myTeam = player.team; break }
     }
@@ -832,7 +833,9 @@
     endgame() { send({ t: 'endgame' }) },
     chat(v) { v = String(v).trim(); if (v) send({ t: 'chat', m: v }) },
     copy() { try { navigator.clipboard.writeText(room.code); status = 'Đã sao chép mã ' + room.code } catch (e) { status = 'Mã phòng: ' + room.code } render() },
+    isOn() { return !!ON },
     isHost() { return !!(ON && AUTH) },
+    bolt(x, y) { if (ON && AUTH) world({ k: 'bolt', x: Math.round(x), y: Math.round(y) }) },
     leave() { leave(true) },
     back() { view = room ? 'room' : 'home'; render() }
   };
