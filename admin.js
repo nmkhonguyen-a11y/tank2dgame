@@ -8,13 +8,14 @@
    D) Giao diện điện thoại: nút nổi 🛠/👑 (kéo được), bảng công cụ co giãn, thanh vẽ tường cảm ứng.
    E) Lệnh gửi tới TẤT CẢ người chơi online qua server: /kick|/freeze|/bring|/mute|/unmute|/ban|/unban|/give|/gems|/exp|/level|/max all, /announce.
    F) Hiệu ứng/lệnh cho TẤT CẢ người chơi đang kết nối máy chủ (qua kênh thông báo của server): /dark|night|rain|snow|storm|god|speed|dmg|rate|noclip|ammo|hitbox|npcfreeze|heal|kill|spawn|boss|killnpc all, /clearfx.
-   C) Màn hình chờ 10 giây mỗi khi chết (vào lại game hoặc đổi xe tăng) — áp dụng cho mọi người chơi.
+   G) Thời tiết ảnh hưởng gameplay: ❄️ lạnh → mọi xe đi chậm hơn (xe dùng lửa bị chậm ít hơn); ⛈️ bão → thỉnh thoảng sét đánh trúng một xe, xe đó mất 50% máu.
+   C) Màn hình chờ 3 giây mỗi khi chết (vào lại game hoặc đổi xe tăng) — áp dụng cho mọi người chơi.
    Quyền thật sự được máy chủ kiểm tra; phần công cụ trong game chỉ chạy ở máy của chính admin. */
 (function () {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const TIERS = ['C', 'B', 'A', 'S', 'SS', 'SSS', 'SSSS', 'SSSSS', 'ULTRA', 'HYPER', 'MYTHIC'];
   const AC = () => window.TWE_ACCOUNT, isAdm = () => !!(AC() && AC().isAdmin);
-  let FXON = false, fxUntil = 0; const adx = () => isAdm() || FXON; // FXON: máy người chơi thường đang chịu hiệu ứng do admin bật cho tất cả
+  let FXON = false, fxUntil = 0, fxW = {}, fxWUntil = 0; const adx = () => isAdm() || FXON; // FXON: máy người chơi thường đang chịu hiệu ứng do admin bật cho tất cả
   const $q = id => document.getElementById(id);
   const ADM = window.TWE_ADM = { noclip: false, god: false, infGems: false, infExp: false, speed: 1, dmg: 1, rate: 1, invisible: false, hitbox: false, night: false, rain: false, snow: false, storm: false, freezeAll: false, brush: '', brushSize: 120, dark: false, darkNpc: true, darkR: 260, infAmmo: false, spec: null };
   let admTok = '', admExp = 0, tab = 'users', msg = '', users = [], total = 0, sel = null, codes = [], shop = [], backups = [], lastQ = '';
@@ -300,7 +301,7 @@
   };
 
   /* ================= C) MÀN HÌNH CHỜ KHI CHẾT ================= */
-  let deathWait = 10, lastBegin, dwTimer = 0, dwOn = false, dwPvp = false;
+  let deathWait = 3, lastBegin, dwTimer = 0, dwOn = false, dwPvp = false;
   const dw = document.createElement('div'); dw.id = 'deathWait'; dw.className = 'ov hidden'; dw.style.zIndex = 40;
   ((($q('over') && $q('over').parentNode) || document.body)).appendChild(dw);
   ['mousedown', 'mouseup', 'click', 'contextmenu', 'wheel'].forEach(ev => dw.addEventListener(ev, e => e.stopPropagation()));
@@ -496,15 +497,19 @@
      Máy admin bỏ qua gói (admin dùng công cụ của mình). Người chơi P2P (không có máy chủ) không nhận được. */
   const FX_MARK = '[[FX]]', FXK = ['dark', 'darkNpc', 'night', 'rain', 'snow', 'storm', 'freezeAll', 'speed', 'dmg', 'rate', 'god', 'noclip', 'infAmmo', 'hitbox'];
   const FXDEF = { dark: false, darkNpc: true, night: false, rain: false, snow: false, storm: false, freezeAll: false, speed: 1, dmg: 1, rate: 1, god: false, noclip: false, infAmmo: false, hitbox: false };
-  const FXN = { dark: 'bóng tối', night: 'ban đêm', rain: 'mưa', snow: 'tuyết', storm: 'bão', freezeAll: 'quái đứng yên', speed: 'tốc độ', dmg: 'sát thương', rate: 'tốc bắn', god: 'bất tử', noclip: 'xuyên tường', infAmmo: 'vô hạn đạn', hitbox: 'khung va chạm' };
+  const FXN = { dark: 'bóng tối', night: 'ban đêm', rain: 'mưa', snow: 'tuyết (xe đi chậm hơn)', storm: 'bão (sét đánh trúng: mất 50% máu)', freezeAll: 'quái đứng yên', speed: 'tốc độ', dmg: 'sát thương', rate: 'tốc bắn', god: 'bất tử', noclip: 'xuyên tường', infAmmo: 'vô hạn đạn', hitbox: 'khung va chạm' };
   function fxClear() { FXK.forEach(k => { ADM[k] = FXDEF[k] }); FXON = false; fxUntil = 0; try { if (player && player.recalc) player.recalc() } catch (e) { } }
-  setInterval(() => { if (FXON && fxUntil && Date.now() > fxUntil) fxClear() }, 500);
+  setInterval(() => { if (FXON && fxUntil && Date.now() > fxUntil) fxClear(); if (fxWUntil && Date.now() > fxWUntil) { fxW = {}; fxWUntil = 0 } }, 500);
   const hostNow = () => !!(window.TWE_ONLINE && TWE_ONLINE.isHost && TWE_ONLINE.isHost());
   window.TWE_FX = {
     handle(m) { // null: không phải gói hiệu ứng · '': đã xử lý, không hiện gì · chuỗi: nội dung banner
       const s = String((m && m.m) || ''); if (s.slice(0, FX_MARK.length) !== FX_MARK) return null;
       let p; try { p = JSON.parse(s.slice(FX_MARK.length)) } catch (e) { return '' }
-      if (!p || isAdm()) return '';
+      if (!p) return '';
+      if (isAdm()) { // admin bỏ qua hiệu ứng lên xe của mình, nhưng nếu là chủ phòng vẫn cần biết thời tiết để tính sét / làm chậm quái
+        if (p.c) { fxW = {}; fxWUntil = 0 } else if (p.v) { ['snow', 'storm'].forEach(k => { if (k in p.v) fxW[k] = !!p.v[k] }); fxWUntil = p.s > 0 ? Date.now() + p.s * 1000 : 0 }
+        return '';
+      }
       try {
         if (p.c) { fxClear(); return 'Quản trị viên đã tắt mọi hiệu ứng' }
         if (p.h) { if (live()) player.hp = player.maxHp; return '💚 Bạn được hồi đầy máu' }
@@ -537,6 +542,63 @@
     if (c === 'spawn') return fxSend({ n: Math.max(1, Math.min(50, nums[0] || 5)) }, 'thêm quái (chủ phòng thực hiện)');
     if (c === 'boss') return fxSend({ b: 1 }, 'triệu hồi boss (chủ phòng thực hiện)');
     if (c === 'killnpc') return fxSend({ k: 1 }, 'xóa quái (chủ phòng thực hiện)');
+  }
+
+  /* ================= G) THỜI TIẾT ẢNH HƯỞNG GAMEPLAY =================
+     ❄️ Lạnh : mọi xe (người chơi, quái, bot) đi chậm COLD_SLOW; xe có nòng lửa 'f' chỉ bị chậm một phần (giảm FIRE_RESIST).
+     ⛈️ Bão  : thỉnh thoảng sét đánh trúng một xe (báo trước ~0,8s bằng vòng vàng), xe trong vòng sét mất STORM_DMG máu tối đa.
+     Online: chủ phòng chọn mục tiêu và gửi tia sét cho cả phòng (world 'bolt'); mỗi máy tự trừ máu xe của mình, chủ phòng trừ máu quái/bot. */
+  const COLD_SLOW = .30, FIRE_RESIST = .5, STORM_DMG = .5, BOLT_R = 85, BOLT_WARN = 50, STORM_GAP = [540, 1080];
+  const STORM_SRC = { team: '__storm' };
+  const coldFor = e => (adx() && ADM.snow) || (isAdm() && fxW.snow && e !== player);
+  const stormPlayerOn = () => adx() && ADM.storm, stormSchedOn = () => stormPlayerOn() || (isAdm() && !!fxW.storm);
+  const hasFire = e => { const b = e && e.barrels; return !!(b && b.some && b.some(x => x.k === 'f')) };
+  const coldMul = e => 1 - COLD_SLOW * (hasFire(e) ? 1 - FIRE_RESIST : 1);
+  const coldWrap = proto => {
+    if (!Object.prototype.hasOwnProperty.call(proto, 'update')) return; const o = proto.update;
+    proto.update = function () {
+      if (this.net || !coldFor(this)) return o.apply(this, arguments);
+      const m = coldMul(this), s0 = this.speed, p0 = this.spd; if (typeof s0 === 'number') this.speed = s0 * m; if (typeof p0 === 'number') this.spd = p0 * m;
+      try { return o.apply(this, arguments) } finally { if (typeof s0 === 'number' && this.speed === s0 * m) this.speed = s0; if (typeof p0 === 'number' && this.spd === p0 * m) this.spd = p0 }
+    };
+  };
+  coldWrap(P.prototype); coldWrap(Enemy.prototype);
+
+  function boltHit(x, y) {
+    flash = 8;
+    if (stormPlayerOn() && live() && !SIM && Math.hypot(player.x - x, player.y - y) < BOLT_R + (player.r || 22)) { try { hurtPlayer(player.maxHp * STORM_DMG, STORM_SRC); text(player.x, player.y - 40, '⚡ -' + Math.round(STORM_DMG * 100) + '% MÁU', '#fde047') } catch (e) { } }
+    enemies.forEach(e => { if (e.dead || e.net) return; if (Math.hypot(e.x - x, e.y - y) < BOLT_R + (e.r || 22)) { try { hurtEnemy(e, e.maxHp * STORM_DMG, null) } catch (er) { } } });
+  }
+  function boltStrike(x, y) {
+    let t = 0;
+    fx.push({
+      life: BOLT_WARN + 16,
+      update() { t++; this.life--; if (t === BOLT_WARN) boltHit(x, y) },
+      draw() {
+        const sx = x - camX, sy = y - camY; ctx.save();
+        if (t < BOLT_WARN) { ctx.globalAlpha = .45 + .3 * Math.sin(t * .5); ctx.strokeStyle = '#fde047'; ctx.fillStyle = 'rgba(250,204,21,.12)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, BOLT_R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy, BOLT_R * t / BOLT_WARN, 0, 7); ctx.stroke() }
+        else {
+          ctx.globalAlpha = Math.max(0, 1 - (t - BOLT_WARN) / 16); ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.shadowColor = '#93c5fd'; ctx.shadowBlur = 24; ctx.beginPath(); ctx.moveTo(sx + 40, sy - 900);
+          for (let i = 1; i <= 9; i++) { const f = i / 9; ctx.lineTo(sx + (1 - f) * 40 + (i < 9 ? Math.sin(i * 12.9 + x) * 36 : 0), sy - 900 * (1 - f)) } ctx.stroke();
+          ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.arc(sx, sy, BOLT_R, 0, 7); ctx.fill();
+        }
+        ctx.restore();
+      }
+    });
+  }
+  window.TWE_FX.bolt = (x, y) => { if (live() && !SIM && !WATCH && stormPlayerOn()) boltStrike(x, y) };   // tia sét nhận từ chủ phòng (online)
+  let nextBolt = 0;
+  function stormTick() {
+    if (!live() || SIM || WATCH || !stormSchedOn()) { nextBolt = 0; return }
+    const on = !!(window.TWE_ONLINE && TWE_ONLINE.isOn && TWE_ONLINE.isOn());
+    if (on && !TWE_ONLINE.isHost()) return;                 // máy khách chỉ nhận sét từ chủ phòng
+    if (!nextBolt) nextBolt = frame + 300 + Math.random() * 300;
+    if (frame < nextBolt) return;
+    nextBolt = frame + STORM_GAP[0] + Math.random() * (STORM_GAP[1] - STORM_GAP[0]);
+    const cand = [player].concat(enemies.filter(e => !e.dead && (on || Math.hypot(e.x - player.x, e.y - player.y) < 1400))).filter(e => !(T4 && inSafe(e)));
+    const tg = cand[Math.floor(Math.random() * cand.length)]; if (!tg) return;
+    if (on && TWE_ONLINE.bolt) TWE_ONLINE.bolt(tg.x, tg.y);
+    if (stormPlayerOn()) boltStrike(tg.x, tg.y); else boltHit(tg.x, tg.y);   // chủ phòng là admin (bỏ qua hiệu ứng cho xe mình): chỉ tính cho quái/bot
   }
 
   const U = window.TWE_ADM_UI = {
@@ -628,6 +690,7 @@
   };
   function tick() {
     requestAnimationFrame(tick);
+    stormTick();
     if (!adx() || !live()) return;
     if (ADM.infGems && D.gems < 1e11) D.gems = 1e12;
     if (ADM.infExp && frame % 90 === 0) { try { player.addExp(1e8) } catch (e) { } }
